@@ -333,7 +333,7 @@ CPU_haveAltiVec(void)
     int error = sysctl(selectors, 2, &hasVectorUnit, &length, NULL, 0);
     if (0 == error)
         altivec = (hasVectorUnit != 0);
-#elif defined __amigaos4__
+#elif defined __AMIGAOS4__
     {
         uint32 vec_unit;
 
