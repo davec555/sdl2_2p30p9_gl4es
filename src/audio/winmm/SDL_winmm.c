@@ -86,7 +86,7 @@ static void DetectWave##typ##Devs(void) { \
                  * is not provided by the caps struct! At best, we get possible \
                  * sample formats, but not an _active_ format. \
                  */ \
-                spec.channels = caps.wChannels; \
+                spec.channels = (Uint8)caps.wChannels; \
                 SDL_AddAudioDevice((int) iscapture, name, &spec, (void *) ((size_t) i+1)); \
                 SDL_free(name); \
             } \
@@ -135,7 +135,7 @@ FillSound(HWAVEOUT hwo, UINT uMsg, DWORD_PTR dwInstance,
 }
 
 static int
-SetMMerror(char *function, MMRESULT code)
+SetMMerror(const char *function, MMRESULT code)
 {
     int len;
     char errbuf[MAXERRORLENGTH];
@@ -433,7 +433,6 @@ WINMM_OpenDevice(_THIS, void *handle, const char *devname, int iscapture)
 
     return 0;                   /* Ready to go! */
 }
-
 
 static int
 WINMM_Init(SDL_AudioDriverImpl * impl)

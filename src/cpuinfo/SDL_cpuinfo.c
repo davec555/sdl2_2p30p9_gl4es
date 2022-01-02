@@ -50,10 +50,13 @@
 #endif
 #if defined(__MACOSX__) && (defined(__ppc__) || defined(__ppc64__))
 #include <sys/sysctl.h>         /* For AltiVec check */
-#elif (defined(__OpenBSD__) || defined(__FreeBSD__)) && defined(__powerpc__)
+#elif defined(__OpenBSD__) && defined(__powerpc__)
 #include <sys/param.h>
 #include <sys/sysctl.h> /* For AltiVec check */
 #include <machine/cpu.h>
+#elif defined(__FreeBSD__) && defined(__powerpc__)
+#include <machine/cpu.h>
+#include <sys/auxv.h>
 #elif SDL_ALTIVEC_BLITTERS && HAVE_SETJMP
 #include <signal.h>
 #include <setjmp.h>
@@ -115,7 +118,7 @@
 #define CPU_HAS_AVX512F (1 << 12)
 #define CPU_HAS_ARM_SIMD (1 << 13)
 
-#if SDL_ALTIVEC_BLITTERS && HAVE_SETJMP && !__MACOSX__ && !__OpenBSD__
+#if SDL_ALTIVEC_BLITTERS && HAVE_SETJMP && !__MACOSX__ && !__OpenBSD__ && !__FreeBSD__
 /* This is the brute force way of detecting instruction sets...
    the idea is borrowed from the libmpeg2 library - thanks!
  */
@@ -319,11 +322,9 @@ CPU_haveAltiVec(void)
 {
     volatile int altivec = 0;
 #ifndef SDL_CPUINFO_DISABLED
-#if (defined(__MACOSX__) && (defined(__ppc__) || defined(__ppc64__))) || (defined(__OpenBSD__) && defined(__powerpc__)) || (defined(__FreeBSD__) && defined(__powerpc__))
+#if (defined(__MACOSX__) && (defined(__ppc__) || defined(__ppc64__))) || (defined(__OpenBSD__) && defined(__powerpc__))
 #ifdef __OpenBSD__
     int selectors[2] = { CTL_MACHDEP, CPU_ALTIVEC };
-#elif defined(__FreeBSD__)
-    int selectors[2] = { CTL_HW, PPC_FEATURE_HAS_ALTIVEC };
 #else
     int selectors[2] = { CTL_HW, HW_VECTORUNIT };
 #endif
@@ -339,6 +340,11 @@ CPU_haveAltiVec(void)
         IExec->GetCPUInfoTags(GCIT_VectorUnit, &vec_unit, TAG_DONE);
         altivec = (vec_unit == VECTORTYPE_ALTIVEC);
     }
+#elif defined(__FreeBSD__) && defined(__powerpc__)
+    unsigned long cpufeatures = 0;
+    elf_aux_info(AT_HWCAP, &cpufeatures, sizeof(cpufeatures));
+    altivec = cpufeatures & PPC_FEATURE_HAS_ALTIVEC;
+    return altivec;
 #elif SDL_ALTIVEC_BLITTERS && HAVE_SETJMP
     void (*handler) (int sig);
     handler = signal(SIGILL, illegal_instruction);
@@ -356,14 +362,14 @@ CPU_haveAltiVec(void)
 static int
 CPU_haveARMSIMD(void)
 {
-	return 1;
+    return 1;
 }
 
 #elif !defined(__arm__)
 static int
 CPU_haveARMSIMD(void)
 {
-	return 0;
+    return 0;
 }
 
 #elif defined(__LINUX__)
@@ -373,7 +379,7 @@ CPU_haveARMSIMD(void)
     int arm_simd = 0;
     int fd;
 
-    fd = open("/proc/self/auxv", O_RDONLY);
+    fd = open("/proc/self/auxv", O_RDONLY | O_CLOEXEC);
     if (fd >= 0)
     {
         Elf32_auxv_t aux;
@@ -383,8 +389,8 @@ CPU_haveARMSIMD(void)
             {
                 const char *plat = (const char *) aux.a_un.a_val;
                 if (plat) {
-                    arm_simd = strncmp(plat, "v6l", 3) == 0 ||
-                               strncmp(plat, "v7l", 3) == 0;
+                    arm_simd = SDL_strncmp(plat, "v6l", 3) == 0 ||
+                               SDL_strncmp(plat, "v7l", 3) == 0;
                 }
             }
         }
@@ -397,20 +403,20 @@ CPU_haveARMSIMD(void)
 static int
 CPU_haveARMSIMD(void)
 {
-	_kernel_swi_regs regs;
-	regs.r[0] = 0;
-	if (_kernel_swi(OS_PlatformFeatures, &regs, &regs) != NULL)
-		return 0;
+    _kernel_swi_regs regs;
+    regs.r[0] = 0;
+    if (_kernel_swi(OS_PlatformFeatures, &regs, &regs) != NULL)
+        return 0;
 
-	if (!(regs.r[0] & (1<<31)))
-		return 0;
+    if (!(regs.r[0] & (1<<31)))
+        return 0;
 
-	regs.r[0] = 34;
-	regs.r[1] = 29;
-	if (_kernel_swi(OS_PlatformFeatures, &regs, &regs) != NULL)
-		return 0;
+    regs.r[0] = 34;
+    regs.r[1] = 29;
+    if (_kernel_swi(OS_PlatformFeatures, &regs, &regs) != NULL)
+        return 0;
 
-	return regs.r[0];
+    return regs.r[0];
 }
 
 #else
@@ -429,7 +435,7 @@ readProcAuxvForNeon(void)
     int neon = 0;
     int fd;
 
-    fd = open("/proc/self/auxv", O_RDONLY);
+    fd = open("/proc/self/auxv", O_RDONLY | O_CLOEXEC);
     if (fd >= 0)
     {
         Elf32_auxv_t aux;
@@ -1049,6 +1055,13 @@ SDL_GetSystemRAM(void)
             }
         }
 #endif
+#ifdef __VITA__
+        if (SDL_SystemRAM <= 0) {
+            /* Vita has 512MiB on SoC, that's split into 256MiB(+109MiB in extended memory mode) for app
+               +26MiB of physically continuous memory, +112MiB of CDRAM(VRAM) + system reserved memory. */
+            SDL_SystemRAM = 536870912;
+        }
+#endif
 #endif
     }
     return SDL_SystemRAM;
@@ -1074,7 +1087,7 @@ SDL_SIMDAlloc(const size_t len)
     Uint8 *retval = NULL;
     Uint8 *ptr = (Uint8 *) SDL_malloc(padded + alignment + sizeof (void *));
     if (ptr) {
-        /* store the actual malloc pointer right before our aligned pointer. */
+        /* store the actual allocated pointer right before our aligned pointer. */
         retval = ptr + sizeof (void *);
         retval += alignment - (((size_t) retval) % alignment);
         *(((void **) retval) - 1) = ptr;
@@ -1104,14 +1117,11 @@ SDL_SIMDRealloc(void *mem, const size_t len)
 
     ptr = (Uint8 *) SDL_realloc(mem, padded + alignment + sizeof (void *));
 
-    if (ptr == mem) {
-        return retval; /* Pointer didn't change, nothing to do */
-    }
     if (ptr == NULL) {
         return NULL; /* Out of memory, bail! */
     }
 
-    /* Store the actual malloc pointer right before our aligned pointer. */
+    /* Store the actual allocated pointer right before our aligned pointer. */
     retval = ptr + sizeof (void *);
     retval += alignment - (((size_t) retval) % alignment);
 
@@ -1119,7 +1129,7 @@ SDL_SIMDRealloc(void *mem, const size_t len)
     if (mem) {
         ptrdiff = ((size_t) retval) - ((size_t) ptr);
         if (memdiff != ptrdiff) { /* Delta has changed, copy to new offset! */
-            oldmem = (void*) (((size_t) ptr) + memdiff);
+            oldmem = (void*) (((uintptr_t) ptr) + memdiff);
 
             /* Even though the data past the old `len` is undefined, this is the
              * only length value we have, and it guarantees that we copy all the
@@ -1129,7 +1139,7 @@ SDL_SIMDRealloc(void *mem, const size_t len)
         }
     }
 
-    /* Actually store the malloc pointer, finally. */
+    /* Actually store the allocated pointer, finally. */
     *(((void **) retval) - 1) = ptr;
     return retval;
 }
