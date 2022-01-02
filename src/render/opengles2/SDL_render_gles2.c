@@ -1500,6 +1500,24 @@ GLES2_TexSubImage2D(GLES2_RenderData *data, GLenum target, GLint xoffset, GLint 
         return 0;  /* nothing to do */
     }
 
+    /* Reformat the texture data into a tightly packed array */
+    src_pitch = width * bpp;
+    src = (Uint8 *)pixels;
+    if (pitch != src_pitch) {
+        blob = (Uint8 *)SDL_malloc(src_pitch * height);
+        if (!blob) {
+            return SDL_OutOfMemory();
+        }
+        src = blob;
+        for (y = 0; y < height; ++y)
+        {
+            SDL_memcpy(src, pixels, src_pitch);
+            src += src_pitch;
+            pixels = (Uint8 *)pixels + pitch;
+        }
+        src = blob;
+    }
+
 #if SDL_BYTEORDER == SDL_BIG_ENDIAN
     if (format == GL_RGBA) {
         int i;
