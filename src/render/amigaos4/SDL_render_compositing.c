@@ -74,7 +74,7 @@ typedef struct {
 SDL_bool
 OS4_IsColorModEnabled(SDL_Texture * texture)
 {
-    if ((texture->r & texture->g & texture->b) != 255) {
+    if ((texture->color.r & texture->color.g & texture->color.b) != 255) {
         //dprintf("Color mod enabled (%d, %d, %d)\n", texture->r, texture->g, texture->b);
         return SDL_TRUE;
     }
