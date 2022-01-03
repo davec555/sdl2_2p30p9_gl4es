@@ -124,9 +124,9 @@ OS4_ModulateRGB(SDL_Renderer * renderer, SDL_Texture * texture, Uint8 * src, int
                     Uint8 g = (oldcolor & 0x0000FF00) >> 8;
                     Uint8 b = (oldcolor & 0x000000FF);
 
-                    newcolor |= ((r * texture->r) / 255) << 16;
-                    newcolor |= ((g * texture->g) / 255) << 8;
-                    newcolor |= ((b * texture->b) / 255);
+                    newcolor |= ((r * texture->color.r) / 255) << 16;
+                    newcolor |= ((g * texture->color.g) / 255) << 8;
+                    newcolor |= ((b * texture->color.b) / 255);
 
                     writeaddress[x] = newcolor;
                 }
@@ -148,9 +148,9 @@ OS4_NeedRemodulation(SDL_Texture * texture)
 {
     OS4_TextureData *texturedata = (OS4_TextureData *) texture->driverdata;
 
-    if (texture->r != texturedata->r ||
-        texture->g != texturedata->g ||
-        texture->b != texturedata->b ||
+    if (texture->color.r != texturedata->r ||
+        texture->color.g != texturedata->g ||
+        texture->color.b != texturedata->b ||
         texturedata->finalbitmap == NULL) {
 
         return SDL_TRUE;
@@ -209,9 +209,9 @@ OS4_SetTextureColorMod(SDL_Renderer * renderer, SDL_Texture * texture)
         }
 
         /* Remember last values so that we can avoid re-modulation with same parameters */
-        texturedata->r = texture->r;
-        texturedata->g = texture->g;
-        texturedata->b = texture->b;
+        texturedata->r = texture->color.r;
+        texturedata->g = texture->color.g;
+        texturedata->b = texture->color.b;
     }
 
     return 0;

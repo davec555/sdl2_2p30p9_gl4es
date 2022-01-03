@@ -610,6 +610,13 @@ AMIGAINPUT_SetLED(SDL_Joystick * joystick, Uint8 red, Uint8 green, Uint8 blue)
 }
 
 static int
+AMIGAINPUT_SendEffect(SDL_Joystick *joystick, const void *data, int size)
+{
+    dprintf("Called\n");
+    return SDL_Unsupported();
+}
+
+static int
 AMIGAINPUT_SetSensorsEnabled(SDL_Joystick * joystick, SDL_bool enabled)
 {
     dprintf("Called\n");
@@ -638,6 +645,7 @@ SDL_JoystickDriver SDL_AMIGAINPUT_JoystickDriver =
     AMIGAINPUT_RumbleTriggers,
     AMIGAINPUT_HasLED,
     AMIGAINPUT_SetLED,
+    AMIGAINPUT_SendEffect,
     AMIGAINPUT_SetSensorsEnabled,
     AMIGAINPUT_Update,
     AMIGAINPUT_Close,

@@ -200,7 +200,7 @@ SDL_Delay(Uint32 ms)
     struct timespec elapsed, tv;
 #else
 
-#ifndef __amigaos4__
+#ifndef __AMIGAOS4__
     struct timeval tv;
 #endif
 
@@ -230,7 +230,7 @@ SDL_Delay(Uint32 ms)
             break;
         }
         ms -= (Uint32)elapsed;
-#ifdef __amigaos4__
+#ifdef __AMIGAOS4__
         was_error = usleep(ms * 1000);
 #else
         tv.tv_sec = ms / 1000;
