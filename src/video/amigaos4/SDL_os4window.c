@@ -940,9 +940,9 @@ OS4_SetWindowOpacity(_THIS, SDL_Window * window, float opacity)
 
     const UBYTE value = opacity * 255;
 
-    dprintf("Setting window '%s' opaqueness to %u\n", window->title, opacity);
+    dprintf("Setting window '%s' opaqueness to %u\n", window->title, value);
 
-    return OS4_SetWindowOpacityPrivate(_this, syswin, opacity) ? 0 : -1;
+    return OS4_SetWindowOpacityPrivate(_this, syswin, value) ? 0 : -1;
 }
 
 int
