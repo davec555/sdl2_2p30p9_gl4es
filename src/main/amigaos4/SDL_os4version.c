@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2021 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2022 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -20,6 +20,6 @@
 */
 
 #ifdef __AMIGADATE__
-static const char* const version __attribute__ ((used)) = "\0$VER: libSDL2.so 0.19 (" __AMIGADATE__ ")\0";
+static const char* const version __attribute__ ((used)) = "\0$VER: libSDL2.so 0.20 (" __AMIGADATE__ ")\0";
 #endif
 
