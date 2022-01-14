@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2021 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2022 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -1614,6 +1614,7 @@ extern DECLSPEC int SDLCALL SDL_RenderCopyExF(SDL_Renderer * renderer,
  *
  * \since This function is available since SDL 2.0.18.
  *
+ * \sa SDL_RenderGeometryRaw
  * \sa SDL_Vertex
  */
 extern DECLSPEC int SDLCALL SDL_RenderGeometry(SDL_Renderer *renderer,
@@ -1641,6 +1642,9 @@ extern DECLSPEC int SDLCALL SDL_RenderGeometry(SDL_Renderer *renderer,
  * \return 0 on success, or -1 if the operation is not supported
  *
  * \since This function is available since SDL 2.0.18.
+ *
+ * \sa SDL_RenderGeometry
+ * \sa SDL_Vertex
  */
 extern DECLSPEC int SDLCALL SDL_RenderGeometryRaw(SDL_Renderer *renderer,
                                                SDL_Texture *texture,
