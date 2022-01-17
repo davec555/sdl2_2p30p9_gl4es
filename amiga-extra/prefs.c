@@ -41,7 +41,7 @@
 #include <string.h>
 
 #define NAME "SDL2 Prefs"
-#define VERSION "1.0"
+#define VERSION "1.1"
 #define MAX_PATH_LEN 1024
 #define MAX_VARIABLE_NAME_LEN 32
 
@@ -66,6 +66,7 @@ enum EGadgetID
     GID_DriverList = 1,
     GID_VsyncList,
     GID_BatchingList,
+    GID_ScaleQualityList,
     GID_SaveButton,
     GID_UseButton,
     GID_ResetButton,
@@ -79,10 +80,6 @@ enum EMenuID
     MID_Quit
 };
 
-static struct List* driverList;
-static struct List* vsyncList;
-static struct List* batchingList;
-
 static struct Window* window;
 
 struct Variable
@@ -91,11 +88,13 @@ struct Variable
     const char* const name;
     char value[MAX_VARIABLE_NAME_LEN];
     Object* object;
+    struct List* list;
 };
 
-static struct Variable driverVar = { 0, "SDL_RENDER_DRIVER", "", NULL };
-static struct Variable vsyncVar = { 0, "SDL_RENDER_VSYNC", "", NULL };
-static struct Variable batchingVar = { 0, "SDL_RENDER_BATCHING", "", NULL };
+static struct Variable driverVar = { 0, "SDL_RENDER_DRIVER", "", NULL, NULL };
+static struct Variable vsyncVar = { 0, "SDL_RENDER_VSYNC", "", NULL, NULL };
+static struct Variable batchingVar = { 0, "SDL_RENDER_BATCHING", "", NULL, NULL };
+static struct Variable scaleQualityVar = { 0, "SDL_RENDER_SCALE_QUALITY", "", NULL, NULL };
 
 struct OptionName
 {
@@ -126,6 +125,14 @@ static const struct OptionName batchingNames[] =
     { "default", NULL },
     { "enabled", "1" },
     { "disabled", "0" },
+    { NULL, NULL }
+};
+
+static const struct OptionName scaleQualityNames[] =
+{
+    { "default", NULL },
+    { "nearest", "0" },
+    { "linear", "1" },
     { NULL, NULL }
 };
 
@@ -190,6 +197,7 @@ LoadVariables()
     LoadVariable(&driverVar, driverNames);
     LoadVariable(&vsyncVar, vsyncNames);
     LoadVariable(&batchingVar, batchingNames);
+    LoadVariable(&scaleQualityVar, scaleQualityNames);
 }
 
 static void
@@ -218,6 +226,7 @@ SetVariables()
     SetOrDeleteVariable(&driverVar, driverNames);
     SetOrDeleteVariable(&vsyncVar, vsyncNames);
     SetOrDeleteVariable(&batchingVar, batchingNames);
+    SetOrDeleteVariable(&scaleQualityVar, scaleQualityNames);
 }
 
 static void
@@ -226,6 +235,7 @@ SaveVariables()
     SaveOrDeleteVariable(&driverVar, driverNames);
     SaveOrDeleteVariable(&vsyncVar, vsyncNames);
     SaveOrDeleteVariable(&batchingVar, batchingNames);
+    SaveOrDeleteVariable(&scaleQualityVar, scaleQualityNames);
 }
 
 static BOOL
@@ -360,14 +370,14 @@ PopulateList(struct List* list, const struct OptionName names[])
 static Object*
 CreateDriverButtons()
 {
-    driverList = CreateList();
+    driverVar.list = CreateList();
 
-    if (!driverList) {
+    if (!driverVar.list) {
         return NULL;
     }
 
-    PopulateList(driverList, driverNames);
-    driverVar.object =  CreateRadioButtons(GID_DriverList, driverList, "driver",
+    PopulateList(driverVar.list, driverNames);
+    driverVar.object =  CreateRadioButtons(GID_DriverList, driverVar.list, "driver",
         "Select driver implementation. Available features may vary",
         driverVar.index);
 
@@ -377,14 +387,14 @@ CreateDriverButtons()
 static Object*
 CreateVsyncButtons()
 {
-    vsyncList = CreateList();
+    vsyncVar.list = CreateList();
 
-    if (!vsyncList) {
+    if (!vsyncVar.list) {
         return NULL;
     }
 
-    PopulateList(vsyncList, vsyncNames);
-    vsyncVar.object = CreateRadioButtons(GID_VsyncList, vsyncList, "vsync",
+    PopulateList(vsyncVar.list, vsyncNames);
+    vsyncVar.object = CreateRadioButtons(GID_VsyncList, vsyncVar.list, "vsync",
         "Synchronize display update to monitor refresh rate", vsyncVar.index);
 
     return vsyncVar.object;
@@ -393,18 +403,34 @@ CreateVsyncButtons()
 static Object*
 CreateBatchingButtons()
 {
-    batchingList = CreateList();
+    batchingVar.list = CreateList();
 
-    if (!batchingList) {
+    if (!batchingVar.list) {
         return NULL;
     }
 
-    PopulateList(batchingList, batchingNames);
-    batchingVar.object = CreateRadioButtons(GID_BatchingList, batchingList, "batching",
+    PopulateList(batchingVar.list, batchingNames);
+    batchingVar.object = CreateRadioButtons(GID_BatchingList, batchingVar.list, "batching",
         "Batching may improve drawing speed if application does many operations per frame "
         "and SDL2 is able to combine those", batchingVar.index);
 
     return batchingVar.object;
+}
+
+static Object*
+CreateScaleQualityButtons()
+{
+    scaleQualityVar.list = CreateList();
+
+    if (!scaleQualityVar.list) {
+        return NULL;
+    }
+
+    PopulateList(scaleQualityVar.list, scaleQualityNames);
+    scaleQualityVar.object = CreateRadioButtons(GID_ScaleQualityList, scaleQualityVar.list,
+        "scale quality", "Nearest pixel sampling or linear filtering", scaleQualityVar.index);
+
+    return scaleQualityVar.object;
 }
 
 static Object*
@@ -483,6 +509,12 @@ CreateLayout()
                 LAYOUT_Label, "Batching Mode",
                 LAYOUT_Orientation, LAYOUT_ORIENT_HORIZ,
                 LAYOUT_AddChild, CreateBatchingButtons(),
+                TAG_DONE),
+            LAYOUT_AddChild, IIntuition->NewObject(LayoutClass, NULL,
+                LAYOUT_BevelStyle, BVS_GROUP,
+                LAYOUT_Label, "Scale Quality",
+                LAYOUT_Orientation, LAYOUT_ORIENT_HORIZ,
+                LAYOUT_AddChild, CreateScaleQualityButtons(),
                 TAG_DONE),
             TAG_DONE), // horizontal layout
         LAYOUT_AddChild, IIntuition->NewObject(LayoutClass, NULL,
@@ -692,9 +724,10 @@ GetSelection(Object* object)
 }
 
 static void
-ResetSelection(Object* object)
+ResetSelection(struct Variable* var)
 {
-    IIntuition->RefreshSetGadgetAttrs((struct Gadget *)object, window, NULL, RADIOBUTTON_Selected, 0, TAG_DONE);
+    var->index = 0;
+    IIntuition->RefreshSetGadgetAttrs((struct Gadget *)var->object, window, NULL, RADIOBUTTON_Selected, 0, TAG_DONE);
 }
 
 static BOOL
@@ -714,6 +747,9 @@ HandleGadgets(enum EGadgetID gid)
         case GID_BatchingList:
             batchingVar.index = GetSelection(batchingVar.object);
             break;
+        case GID_ScaleQualityList:
+            scaleQualityVar.index = GetSelection(scaleQualityVar.object);
+            break;
         case GID_SaveButton:
             SaveVariables();
             break;
@@ -721,10 +757,10 @@ HandleGadgets(enum EGadgetID gid)
             SetVariables();
             break;
         case GID_ResetButton:
-            driverVar.index = vsyncVar.index = batchingVar.index = 0;
-            ResetSelection(driverVar.object);
-            ResetSelection(vsyncVar.object);
-            ResetSelection(batchingVar.object);
+            ResetSelection(&driverVar);
+            ResetSelection(&vsyncVar);
+            ResetSelection(&batchingVar);
+            ResetSelection(&scaleQualityVar);
             break;
         case GID_CancelButton:
             running = FALSE;
@@ -822,9 +858,10 @@ main(int argc, char** argv)
             appPort = NULL;
         }
 
-        PurgeList(driverList);
-        PurgeList(vsyncList);
-        PurgeList(batchingList);
+        PurgeList(driverVar.list);
+        PurgeList(vsyncVar.list);
+        PurgeList(batchingVar.list);
+        PurgeList(scaleQualityVar.list);
     }
 
     CloseClasses();
