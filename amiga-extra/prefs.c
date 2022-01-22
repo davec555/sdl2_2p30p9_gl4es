@@ -82,20 +82,6 @@ enum EMenuID
 
 static struct Window* window;
 
-struct Variable
-{
-    int index;
-    const char* const name;
-    char value[MAX_VARIABLE_NAME_LEN];
-    Object* object;
-    struct List* list;
-};
-
-static struct Variable driverVar = { 0, "SDL_RENDER_DRIVER", "", NULL, NULL };
-static struct Variable vsyncVar = { 0, "SDL_RENDER_VSYNC", "", NULL, NULL };
-static struct Variable batchingVar = { 0, "SDL_RENDER_BATCHING", "", NULL, NULL };
-static struct Variable scaleQualityVar = { 0, "SDL_RENDER_SCALE_QUALITY", "", NULL, NULL };
-
 struct OptionName
 {
     const char* const displayName;
@@ -105,7 +91,7 @@ struct OptionName
 static const struct OptionName driverNames[] =
 {
     { "default", NULL },
-    { "compositing (default)", "compositing" },
+    { "compositing", "compositing" },
     { "opengl", "opengl" },
     { "opengles2", "opengles2" },
     { "software", "software" },
@@ -135,6 +121,21 @@ static const struct OptionName scaleQualityNames[] =
     { "linear", "1" },
     { NULL, NULL }
 };
+
+struct Variable
+{
+    int index;
+    const char* const name;
+    char value[MAX_VARIABLE_NAME_LEN];
+    Object* object;
+    struct List* list;
+    const struct OptionName* const names;
+};
+
+static struct Variable driverVar = { 0, "SDL_RENDER_DRIVER", "", NULL, NULL, driverNames };
+static struct Variable vsyncVar = { 0, "SDL_RENDER_VSYNC", "", NULL, NULL, vsyncNames };
+static struct Variable batchingVar = { 0, "SDL_RENDER_BATCHING", "", NULL, NULL, batchingNames };
+static struct Variable scaleQualityVar = { 0, "SDL_RENDER_SCALE_QUALITY", "", NULL, NULL, scaleQualityNames };
 
 static char*
 GetVariable(const char* const name)
@@ -170,7 +171,7 @@ DeleteVariable(const char* const name, uint32 control)
 }
 
 static void
-LoadVariable(struct Variable* var, const struct OptionName names[])
+LoadVariable(struct Variable* var)
 {
     const char* const value = GetVariable(var->name);
 
@@ -180,7 +181,7 @@ LoadVariable(struct Variable* var, const struct OptionName names[])
     if (strlen(var->value) > 0) {
         const char* cmp;
         int i = 1;
-        while ((cmp = names[i].envName)) {
+        while ((cmp = var->names[i].envName)) {
             if (strcmp(var->value, cmp) == 0) {
                 dprintf("Value match '%s', index %d\n", cmp, i);
                 var->index = i;
@@ -194,48 +195,48 @@ LoadVariable(struct Variable* var, const struct OptionName names[])
 static void
 LoadVariables()
 {
-    LoadVariable(&driverVar, driverNames);
-    LoadVariable(&vsyncVar, vsyncNames);
-    LoadVariable(&batchingVar, batchingNames);
-    LoadVariable(&scaleQualityVar, scaleQualityNames);
+    LoadVariable(&driverVar);
+    LoadVariable(&vsyncVar);
+    LoadVariable(&batchingVar);
+    LoadVariable(&scaleQualityVar);
 }
 
 static void
-SetOrDeleteVariable(const struct Variable* const variable, const struct OptionName names[])
+SetOrDeleteVariable(const struct Variable* const var)
 {
-    if (variable->index > 0) {
-        SaveVariable(variable->name, names[variable->index].envName, 0);
+    if (var->index > 0) {
+        SaveVariable(var->name, var->names[var->index].envName, 0);
     } else {
-        DeleteVariable(variable->name, 0);
+        DeleteVariable(var->name, 0);
     }
 }
 
 static void
-SaveOrDeleteVariable(const struct Variable* const variable, const struct OptionName names[])
+SaveOrDeleteVariable(const struct Variable* const var)
 {
-    if (variable->index > 0) {
-        SaveVariable(variable->name, names[variable->index].envName, GVF_SAVE_VAR);
+    if (var->index > 0) {
+        SaveVariable(var->name, var->names[var->index].envName, GVF_SAVE_VAR);
     } else {
-        DeleteVariable(variable->name, GVF_SAVE_VAR);
+        DeleteVariable(var->name, GVF_SAVE_VAR);
     }
 }
 
 static void
 SetVariables()
 {
-    SetOrDeleteVariable(&driverVar, driverNames);
-    SetOrDeleteVariable(&vsyncVar, vsyncNames);
-    SetOrDeleteVariable(&batchingVar, batchingNames);
-    SetOrDeleteVariable(&scaleQualityVar, scaleQualityNames);
+    SetOrDeleteVariable(&driverVar);
+    SetOrDeleteVariable(&vsyncVar);
+    SetOrDeleteVariable(&batchingVar);
+    SetOrDeleteVariable(&scaleQualityVar);
 }
 
 static void
 SaveVariables()
 {
-    SaveOrDeleteVariable(&driverVar, driverNames);
-    SaveOrDeleteVariable(&vsyncVar, vsyncNames);
-    SaveOrDeleteVariable(&batchingVar, batchingNames);
-    SaveOrDeleteVariable(&scaleQualityVar, scaleQualityNames);
+    SaveOrDeleteVariable(&driverVar);
+    SaveOrDeleteVariable(&vsyncVar);
+    SaveOrDeleteVariable(&batchingVar);
+    SaveOrDeleteVariable(&scaleQualityVar);
 }
 
 static BOOL
@@ -336,17 +337,17 @@ PurgeList(struct List* list)
 }
 
 static Object*
-CreateRadioButtons(enum EGadgetID gid, struct List* list, const char* const name, const char* const hint, int selected)
+CreateRadioButtons(enum EGadgetID gid, struct Variable* var, const char* const name, const char* const hint)
 {
-    dprintf("gid %d, list %p, name '%s', hint '%s'\n", gid, list, name, hint);
+    dprintf("gid %d, list %p, name '%s', hint '%s'\n", gid, var->list, name, hint);
 
     Object* rb = IIntuition->NewObject(RadioButtonClass, NULL,
         GA_ID, gid,
         GA_RelVerify, TRUE,
         GA_HintInfo, hint,
-        RADIOBUTTON_Labels, list,
+        RADIOBUTTON_Labels, var->list,
         RADIOBUTTON_Spacing, 4,
-        RADIOBUTTON_Selected, selected,
+        RADIOBUTTON_Selected, var->index,
         TAG_DONE);
 
     if (!rb) {
@@ -376,10 +377,13 @@ CreateDriverButtons()
         return NULL;
     }
 
-    PopulateList(driverVar.list, driverNames);
-    driverVar.object =  CreateRadioButtons(GID_DriverList, driverVar.list, "driver",
-        "Select driver implementation. Available features may vary",
-        driverVar.index);
+    PopulateList(driverVar.list, driverVar.names);
+    driverVar.object =  CreateRadioButtons(GID_DriverList, &driverVar, "driver",
+        "Select driver implementation:\n"
+        "- compositing doesn't support some blend modes\n"
+        "- opengl (MiniGL) doesn't support render targets and some blend modes\n"
+        "- opengles2 supports most features\n"
+        "- software supports most features but is not accelerated");
 
     return driverVar.object;
 }
@@ -393,9 +397,9 @@ CreateVsyncButtons()
         return NULL;
     }
 
-    PopulateList(vsyncVar.list, vsyncNames);
-    vsyncVar.object = CreateRadioButtons(GID_VsyncList, vsyncVar.list, "vsync",
-        "Synchronize display update to monitor refresh rate", vsyncVar.index);
+    PopulateList(vsyncVar.list, vsyncVar.names);
+    vsyncVar.object = CreateRadioButtons(GID_VsyncList, &vsyncVar, "vsync",
+        "Synchronize display update to monitor refresh rate");
 
     return vsyncVar.object;
 }
@@ -409,10 +413,10 @@ CreateBatchingButtons()
         return NULL;
     }
 
-    PopulateList(batchingVar.list, batchingNames);
-    batchingVar.object = CreateRadioButtons(GID_BatchingList, batchingVar.list, "batching",
+    PopulateList(batchingVar.list, batchingVar.names);
+    batchingVar.object = CreateRadioButtons(GID_BatchingList, &batchingVar, "batching",
         "Batching may improve drawing speed if application does many operations per frame "
-        "and SDL2 is able to combine those", batchingVar.index);
+        "and SDL2 is able to combine those");
 
     return batchingVar.object;
 }
@@ -426,9 +430,9 @@ CreateScaleQualityButtons()
         return NULL;
     }
 
-    PopulateList(scaleQualityVar.list, scaleQualityNames);
-    scaleQualityVar.object = CreateRadioButtons(GID_ScaleQualityList, scaleQualityVar.list,
-        "scale quality", "Nearest pixel sampling or linear filtering", scaleQualityVar.index);
+    PopulateList(scaleQualityVar.list, scaleQualityVar.names);
+    scaleQualityVar.object = CreateRadioButtons(GID_ScaleQualityList, &scaleQualityVar,
+        "scale quality", "Nearest pixel sampling or linear filtering");
 
     return scaleQualityVar.object;
 }
