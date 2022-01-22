@@ -17,7 +17,7 @@ TODO:
 
 #include "SDL2/SDL.h"
 
-#define BENCHMARK_VERSION "0.6"
+#define BENCHMARK_VERSION "0.7"
 
 #define WIDTH 800
 #define HEIGHT 600
@@ -53,6 +53,7 @@ typedef struct {
     Uint32 *buffer;
     SDL_bool running;
     const char* rendname;
+    Uint64 bytes;
 } Context;
 
 typedef struct {
@@ -93,11 +94,14 @@ static const Test tests[] = {
 static const BlendMode modes[] = {
     { "None", SDL_BLENDMODE_NONE },
     { "Blend", SDL_BLENDMODE_BLEND },
+#if 0
     { "Add", SDL_BLENDMODE_ADD },
     { "Mod", SDL_BLENDMODE_MOD }
+#endif
 };
 
-static const char *getModeName(SDL_BlendMode mode)
+static const char *
+getModeName(SDL_BlendMode mode)
 {
     int i;
 
@@ -113,7 +117,8 @@ static const char *getModeName(SDL_BlendMode mode)
     return unknown;
 }
 
-static void printInfo(Context *ctx)
+static void
+printInfo(Context *ctx)
 {
     SDL_RendererInfo ri;
     int result;
@@ -128,13 +133,15 @@ static void printInfo(Context *ctx)
     }
 }
 
-static void render(Context *ctx)
+static void
+render(Context *ctx)
 {
     SDL_RenderPresent(ctx->renderer);
     ctx->frames++;
 }
 
-static SDL_bool clearDisplay(Context *ctx)
+static SDL_bool
+clearDisplay(Context *ctx)
 {
     int result;
 
@@ -168,12 +175,14 @@ static float interpolate(float min, float max, float percentage)
 }
 */
 
-static Uint32 getRand(Uint32 max)
+static Uint32
+getRand(Uint32 max)
 {
     return rand() % max;
 }
 
-static void makeRandomTexture(Context *ctx)
+static void
+makeRandomTexture(Context *ctx)
 {
     int i;
 
@@ -186,7 +195,8 @@ static void makeRandomTexture(Context *ctx)
     }
 }
 
-static SDL_bool prepareTexture(Context *ctx)
+static SDL_bool
+prepareTexture(Context *ctx)
 {
     int result;
 
@@ -236,7 +246,8 @@ static SDL_bool prepareTexture(Context *ctx)
     return SDL_TRUE;
 }
 
-static SDL_bool prepareTest(Context *ctx, const Test *test)
+static SDL_bool
+prepareTest(Context *ctx, const Test *test)
 {
     if (!clearDisplay(ctx)) {
         return SDL_FALSE;
@@ -250,11 +261,13 @@ static SDL_bool prepareTest(Context *ctx, const Test *test)
 
     ctx->frames = 0;
     ctx->operations = 0;
+    ctx->bytes = 0;
 
     return SDL_TRUE;
 }
 
-static void afterTest(Context *ctx)
+static void
+afterTest(Context *ctx)
 {
     if (ctx->texture) {
         SDL_DestroyTexture(ctx->texture);
@@ -271,11 +284,12 @@ static void afterTest(Context *ctx)
     }
 }
 
-static SDL_bool runTest(Context *ctx, const Test *test)
+static SDL_bool
+runTest(Context *ctx, const Test *test)
 {
     Uint64 start, finish;
     double duration;
-    float fps, ops;
+    float fps, ops, bps;
 
     if (!prepareTest(ctx, test)) {
         return SDL_FALSE;
@@ -302,13 +316,19 @@ static SDL_bool runTest(Context *ctx, const Test *test)
 
     fps = ctx->frames / duration;
     ops = ctx->operations / duration;
+    bps = ctx->bytes / duration / (1000000);
 
     if (fps == ops) {
-        SDL_Log("%s [mode: %s]...%d frames drawn in %.3f seconds => %.1f frames per second\n",
+        SDL_Log("%s [mode: %s]...%d frames drawn in %.3f seconds => %.1f frames/s\n",
             test->name, getModeName(ctx->mode), ctx->frames, duration, fps);
     } else {
-        SDL_Log("%s [mode: %s]...%d frames drawn in %.3f seconds => %.1f frames per second, %.1f operations per second\n",
-            test->name, getModeName(ctx->mode), ctx->frames, duration, fps, ops);
+        if (fps > 0.0f) {
+            SDL_Log("%s [mode: %s]...%d frames drawn in %.3f seconds => %.1f frames/s, %.1f operations/s, %.1f megabytes/s\n",
+                test->name, getModeName(ctx->mode), ctx->frames, duration, fps, ops, bps);
+        } else {
+            SDL_Log("%s [mode: %s]...%.1f operations/s, %.1f megabytes/s\n",
+                test->name, getModeName(ctx->mode), ops, bps);
+        }
     }
 
     afterTest(ctx);
@@ -316,11 +336,10 @@ static SDL_bool runTest(Context *ctx, const Test *test)
     return SDL_TRUE;
 }
 
-static SDL_bool setRandomColor(Context *ctx)
+static SDL_bool
+setRandomColor(Context *ctx)
 {
-    int result;
-
-    result = SDL_SetRenderDrawColor(ctx->renderer,
+    int result = SDL_SetRenderDrawColor(ctx->renderer,
         getRand(256), getRand(256), getRand(256), getRand(256));
 
     if (result) {
@@ -368,17 +387,20 @@ static SDL_bool testPointsInner(Context *ctx, SDL_bool linemode)
     return SDL_TRUE;
 }
 
-static SDL_bool testPoints(Context *ctx)
+static SDL_bool
+testPoints(Context *ctx)
 {
     return testPointsInner(ctx, SDL_FALSE);
 }
 
-static SDL_bool testLines(Context *ctx)
+static SDL_bool
+testLines(Context *ctx)
 {
     return testPointsInner(ctx, SDL_TRUE);
 }
 
-static SDL_bool testFillRects(Context *ctx)
+static SDL_bool
+testFillRects(Context *ctx)
 {
     int result = SDL_SetRenderDrawBlendMode(ctx->renderer, ctx->mode);
 
@@ -417,7 +439,8 @@ static SDL_bool testFillRects(Context *ctx)
     return SDL_TRUE;
 }
 
-static SDL_bool testRenderCopyInner(Context *ctx, SDL_bool ex)
+static SDL_bool
+testRenderCopyInner(Context *ctx, SDL_bool ex)
 {
     int result;
 
@@ -462,12 +485,14 @@ static SDL_bool testRenderCopyInner(Context *ctx, SDL_bool ex)
     return SDL_TRUE;
 }
 
-static SDL_bool testRenderCopy(Context *ctx)
+static SDL_bool
+testRenderCopy(Context *ctx)
 {
     return testRenderCopyInner(ctx, SDL_FALSE);
 }
 
-static SDL_bool testRenderCopyEx(Context *ctx)
+static SDL_bool
+testRenderCopyEx(Context *ctx)
 {
     return testRenderCopyInner(ctx, SDL_TRUE);
 }
@@ -481,7 +506,8 @@ static const SDL_Color colors[] = {
 
 static const size_t count = sizeof(colors) / sizeof(colors[0]);
 
-static SDL_bool testColorModulation(Context *ctx)
+static SDL_bool
+testColorModulation(Context *ctx)
 {
     static int i = 0;
 
@@ -495,7 +521,8 @@ static SDL_bool testColorModulation(Context *ctx)
     return testRenderCopyInner(ctx, SDL_FALSE);
 }
 
-static SDL_bool testAlphaModulation(Context *ctx)
+static SDL_bool
+testAlphaModulation(Context *ctx)
 {
     if (SDL_SetTextureAlphaMod(ctx->texture, 127)) {
         SDL_Log("[%s]Failed to set alpha modulation: %s\n", __FUNCTION__, SDL_GetError());
@@ -505,7 +532,8 @@ static SDL_bool testAlphaModulation(Context *ctx)
     return testRenderCopyInner(ctx, SDL_FALSE);
 }
 
-static SDL_bool testUpdateTexture(Context *ctx)
+static SDL_bool
+testUpdateTexture(Context *ctx)
 {
     static int i = 0;
 
@@ -522,11 +550,13 @@ static SDL_bool testUpdateTexture(Context *ctx)
     }
 
     ctx->operations++;
+    ctx->bytes += ctx->texturewidth * ctx->textureheight * sizeof(Uint32);
 
     return testRenderCopyInner(ctx, SDL_FALSE);
 }
 
-static SDL_bool testReadPixels(Context *ctx)
+static SDL_bool
+testReadPixels(Context *ctx)
 {
     SDL_bool result = SDL_TRUE;
 
@@ -549,11 +579,13 @@ static SDL_bool testReadPixels(Context *ctx)
     }
 
     ctx->operations++;
+    ctx->bytes += rect.w * rect.h * sizeof(Uint32);
 
     return result;
 }
 
-static void checkEvents(Context *ctx)
+static void
+checkEvents(Context *ctx)
 {
     SDL_Event e;
 
@@ -569,7 +601,8 @@ static void checkEvents(Context *ctx)
     }
 }
 
-static void runTestSuite(Context *ctx)
+static void
+runTestSuite(Context *ctx)
 {
     int m, t;
 
@@ -589,7 +622,8 @@ static void runTestSuite(Context *ctx)
 }
 
 /* TODO: need proper handling */
-static void checkParameters(Context *ctx, int argc, char **argv)
+static void
+checkParameters(Context *ctx, int argc, char **argv)
 {
     if (argc > 3) {
         ctx->sleep = atoi(argv[3]);
@@ -604,7 +638,8 @@ static void checkParameters(Context *ctx, int argc, char **argv)
     }
 }
 
-static void initContext(Context *ctx, int argc, char **argv)
+static void
+initContext(Context *ctx, int argc, char **argv)
 {
     SDL_memset(ctx, 0, sizeof(Context));
 
@@ -624,7 +659,8 @@ static void initContext(Context *ctx, int argc, char **argv)
         ctx->width, ctx->height, ctx->rendname, ctx->duration, ctx->objects, ctx->sleep);
 }
 
-static void checkPixelFormat(Context *ctx)
+static void
+checkPixelFormat(Context *ctx)
 {
     Uint32 pf;
 
@@ -637,7 +673,8 @@ static void checkPixelFormat(Context *ctx)
     }
 }
 
-static void testRenderer(Context *ctx)
+static void
+testRenderer(Context *ctx)
 {
     if (ctx->renderer) {
         printInfo(ctx);
@@ -650,7 +687,8 @@ static void testRenderer(Context *ctx)
     }
 }
 
-static void testSpecificRenderer(Context *ctx)
+static void
+testSpecificRenderer(Context *ctx)
 {
     SDL_SetHint(SDL_HINT_RENDER_DRIVER, ctx->rendname);
 
@@ -659,7 +697,8 @@ static void testSpecificRenderer(Context *ctx)
     testRenderer(ctx);
 }
 
-static void testAllRenderers(Context *ctx)
+static void
+testAllRenderers(Context *ctx)
 {
     int r;
 
@@ -675,7 +714,8 @@ static void testAllRenderers(Context *ctx)
     }
 }
 
-int main(int argc, char **argv)
+int
+main(int argc, char **argv)
 {
     Context ctx;
     SDL_version linked;
