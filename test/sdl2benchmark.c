@@ -60,6 +60,7 @@ typedef struct {
     const char *name;
     SDL_bool (*testfp)(Context *);
     SDL_bool usetexture;
+    SDL_bool testBlendModes;
 } Test;
 
 typedef struct {
@@ -80,15 +81,15 @@ static SDL_bool testReadPixels(Context *);
 
 /* Insert here new tests */
 static const Test tests[] = {
-    { "Points", testPoints, SDL_FALSE },
-    { "Lines", testLines, SDL_FALSE },
-    { "FillRects", testFillRects, SDL_FALSE },
-    { "RenderCopy", testRenderCopy, SDL_TRUE },
-    { "RenderCopyEx", testRenderCopyEx, SDL_TRUE },
-    { "Color modulation", testColorModulation, SDL_TRUE },
-    { "Alpha modulation", testAlphaModulation, SDL_TRUE },
-    { "UpdateTexture", testUpdateTexture, SDL_TRUE },
-    { "ReadPixels", testReadPixels, SDL_TRUE }
+    { "Points", testPoints, SDL_FALSE, SDL_TRUE },
+    { "Lines", testLines, SDL_FALSE, SDL_TRUE },
+    { "FillRects", testFillRects, SDL_FALSE, SDL_TRUE },
+    { "RenderCopy", testRenderCopy, SDL_TRUE, SDL_TRUE },
+    { "RenderCopyEx", testRenderCopyEx, SDL_TRUE, SDL_TRUE },
+    { "Color modulation", testColorModulation, SDL_TRUE, SDL_TRUE },
+    { "Alpha modulation", testAlphaModulation, SDL_TRUE, SDL_TRUE },
+    { "UpdateTexture", testUpdateTexture, SDL_TRUE, SDL_FALSE },
+    { "ReadPixels", testReadPixels, SDL_TRUE, SDL_FALSE }
 };
 
 static const BlendMode modes[] = {
@@ -498,10 +499,10 @@ testRenderCopyEx(Context *ctx)
 }
 
 static const SDL_Color colors[] = {
-    {255, 0, 0, 255},
-    {0, 255, 0, 255},
-    {0, 0, 255, 255},
-    {127, 127, 127, 255}
+    { 255, 0, 0, 255 },
+    { 0, 255, 0, 255 },
+    { 0, 0, 255, 255 },
+    { 127, 127, 127, 255 }
 };
 
 static const size_t count = sizeof(colors) / sizeof(colors[0]);
@@ -535,15 +536,6 @@ testAlphaModulation(Context *ctx)
 static SDL_bool
 testUpdateTexture(Context *ctx)
 {
-    static int i = 0;
-
-    const int c = i++ % count;
-
-    if (SDL_SetTextureColorMod(ctx->texture, colors[c].r, colors[c].g, colors[c].b)) {
-        SDL_Log("[%s]Failed to set color modulation: %s\n", __FUNCTION__, SDL_GetError());
-        return SDL_FALSE;
-    }
-
     if (SDL_UpdateTexture(ctx->texture, NULL, ctx->buffer, ctx->texturewidth * sizeof(Uint32))) {
         SDL_Log("[%s]Failed to update texture: %s\n", __FUNCTION__, SDL_GetError());
         return SDL_FALSE;
@@ -552,7 +544,7 @@ testUpdateTexture(Context *ctx)
     ctx->operations++;
     ctx->bytes += ctx->texturewidth * ctx->textureheight * sizeof(Uint32);
 
-    return testRenderCopyInner(ctx, SDL_FALSE);
+    return SDL_TRUE;
 }
 
 static SDL_bool
@@ -616,6 +608,10 @@ runTestSuite(Context *ctx)
 
             if (!ctx->running) {
                 return;
+            }
+
+            if (!tests[t].testBlendModes) {
+                break; // Skip the rest
             }
         }
     }
