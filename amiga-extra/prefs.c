@@ -41,7 +41,7 @@
 #include <string.h>
 
 #define NAME "SDL2 Prefs"
-#define VERSION "1.1"
+#define VERSION "1.2"
 #define MAX_PATH_LEN 1024
 #define MAX_VARIABLE_NAME_LEN 32
 
@@ -67,6 +67,7 @@ enum EGadgetID
     GID_VsyncList,
     GID_BatchingList,
     GID_ScaleQualityList,
+    GID_LogicalSizeModeList,
     GID_SaveButton,
     GID_ResetButton,
     GID_CancelButton
@@ -85,40 +86,49 @@ struct OptionName
 {
     const char* const displayName;
     const char* const envName;
+    const char* const envNameAlias;
 };
 
 static const struct OptionName driverNames[] =
 {
-    { "default", NULL },
-    { "compositing", "compositing" },
-    { "opengl", "opengl" },
-    { "opengles2", "opengles2" },
-    { "software", "software" },
-    { NULL, NULL }
+    { "default", NULL, NULL },
+    { "compositing", "compositing", NULL },
+    { "opengl", "opengl", NULL },
+    { "opengles2", "opengles2", NULL },
+    { "software", "software", NULL },
+    { NULL, NULL, NULL }
 };
 
 static const struct OptionName vsyncNames[] =
 {
-    { "default", NULL },
-    { "enabled", "1" },
-    { "disabled", "0" },
-    { NULL, NULL }
+    { "default", NULL, NULL },
+    { "enabled", "1", NULL },
+    { "disabled", "0", NULL },
+    { NULL, NULL, NULL }
 };
 
 static const struct OptionName batchingNames[] =
 {
-    { "default", NULL },
-    { "enabled", "1" },
-    { "disabled", "0" },
-    { NULL, NULL }
+    { "default", NULL, NULL },
+    { "enabled", "1", NULL },
+    { "disabled", "0", NULL },
+    { NULL, NULL, NULL }
 };
 
 static const struct OptionName scaleQualityNames[] =
 {
-    { "default", NULL },
-    { "nearest", "0" },
-    { "linear", "1" },
-    { NULL, NULL }
+    { "default", NULL, NULL },
+    { "nearest", "0", "nearest" },
+    { "linear", "1", "linear" },
+    { NULL, NULL, NULL }
+};
+
+static const struct OptionName logicalSizeModeNames[] =
+{
+    { "default", NULL, NULL },
+    { "letterbox / sidebars", "0", "letterbox" },
+    { "overscan", "1", "overscan" },
+    { NULL, NULL, NULL }
 };
 
 struct Variable
@@ -136,6 +146,7 @@ static struct Variable driverVar = { GID_DriverList, 0, "SDL_RENDER_DRIVER", "",
 static struct Variable vsyncVar = { GID_VsyncList, 0, "SDL_RENDER_VSYNC", "", NULL, NULL, vsyncNames };
 static struct Variable batchingVar = { GID_BatchingList, 0, "SDL_RENDER_BATCHING", "", NULL, NULL, batchingNames };
 static struct Variable scaleQualityVar = { GID_ScaleQualityList, 0, "SDL_RENDER_SCALE_QUALITY", "", NULL, NULL, scaleQualityNames };
+static struct Variable logicalSizeModeVar = { GID_LogicalSizeModeList, 0, "SDL_RENDER_LOGICAL_SIZE_MODE", "", NULL, NULL, logicalSizeModeNames };
 
 static char*
 GetVariable(const char* const name)
@@ -186,6 +197,12 @@ LoadVariable(struct Variable* var)
                 dprintf("Value match '%s', index %d\n", cmp, i);
                 var->index = i;
                 break;
+            } else if ((cmp = var->names[i].envNameAlias)) {
+                if (strcmp(var->value, cmp) == 0) {
+                    dprintf("Alias value match '%s', index %d\n", cmp, i);
+                    var->index = i;
+                    break;
+                }
             }
             i++;
         }
@@ -199,6 +216,7 @@ LoadVariables()
     LoadVariable(&vsyncVar);
     LoadVariable(&batchingVar);
     LoadVariable(&scaleQualityVar);
+    LoadVariable(&logicalSizeModeVar);
 }
 
 static void
@@ -218,6 +236,7 @@ SaveVariables()
     SaveOrDeleteVariable(&vsyncVar);
     SaveOrDeleteVariable(&batchingVar);
     SaveOrDeleteVariable(&scaleQualityVar);
+    SaveOrDeleteVariable(&logicalSizeModeVar);
 }
 
 static BOOL
@@ -385,8 +404,15 @@ CreateBatchingButtons()
 static Object*
 CreateScaleQualityButtons()
 {
-    return CreateRadioButtons(&scaleQualityVar,
-        "scale quality", "Nearest pixel sampling or linear filtering");
+    return CreateRadioButtons(&scaleQualityVar, "scale quality",
+        "Nearest pixel sampling or linear filtering");
+}
+
+static Object*
+CreateLogicalSizeModeButtons()
+{
+    return CreateRadioButtons(&logicalSizeModeVar, "logical size mode",
+        "Scaling policy for SDL_RenderSetLogicalSize");
 }
 
 static Object*
@@ -460,6 +486,12 @@ CreateLayout()
                 LAYOUT_Label, "Scale Quality",
                 LAYOUT_Orientation, LAYOUT_ORIENT_HORIZ,
                 LAYOUT_AddChild, CreateScaleQualityButtons(),
+                TAG_DONE),
+            LAYOUT_AddChild, IIntuition->NewObject(LayoutClass, NULL,
+                LAYOUT_BevelStyle, BVS_GROUP,
+                LAYOUT_Label, "Logical Size Mode",
+                LAYOUT_Orientation, LAYOUT_ORIENT_HORIZ,
+                LAYOUT_AddChild, CreateLogicalSizeModeButtons(),
                 TAG_DONE),
             TAG_DONE), // horizontal layout
         LAYOUT_AddChild, IIntuition->NewObject(LayoutClass, NULL,
@@ -695,6 +727,9 @@ HandleGadgets(enum EGadgetID gid)
         case GID_ScaleQualityList:
             ReadSelection(&scaleQualityVar);
             break;
+        case GID_LogicalSizeModeList:
+            ReadSelection(&logicalSizeModeVar);
+            break;
         case GID_SaveButton:
             SaveVariables();
             break;
@@ -703,6 +738,7 @@ HandleGadgets(enum EGadgetID gid)
             ResetSelection(&vsyncVar);
             ResetSelection(&batchingVar);
             ResetSelection(&scaleQualityVar);
+            ResetSelection(&logicalSizeModeVar);
             break;
         case GID_CancelButton:
             running = FALSE;
@@ -804,6 +840,7 @@ main(int argc, char** argv)
         PurgeList(vsyncVar.list);
         PurgeList(batchingVar.list);
         PurgeList(scaleQualityVar.list);
+        PurgeList(logicalSizeModeVar.list);
     }
 
     CloseClasses();
