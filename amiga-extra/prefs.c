@@ -123,6 +123,7 @@ static const struct OptionName scaleQualityNames[] =
 
 struct Variable
 {
+    const enum EGadgetID gid;
     int index;
     const char* const name;
     char value[MAX_VARIABLE_NAME_LEN];
@@ -131,10 +132,10 @@ struct Variable
     const struct OptionName* const names;
 };
 
-static struct Variable driverVar = { 0, "SDL_RENDER_DRIVER", "", NULL, NULL, driverNames };
-static struct Variable vsyncVar = { 0, "SDL_RENDER_VSYNC", "", NULL, NULL, vsyncNames };
-static struct Variable batchingVar = { 0, "SDL_RENDER_BATCHING", "", NULL, NULL, batchingNames };
-static struct Variable scaleQualityVar = { 0, "SDL_RENDER_SCALE_QUALITY", "", NULL, NULL, scaleQualityNames };
+static struct Variable driverVar = { GID_DriverList, 0, "SDL_RENDER_DRIVER", "", NULL, NULL, driverNames };
+static struct Variable vsyncVar = { GID_VsyncList, 0, "SDL_RENDER_VSYNC", "", NULL, NULL, vsyncNames };
+static struct Variable batchingVar = { GID_BatchingList, 0, "SDL_RENDER_BATCHING", "", NULL, NULL, batchingNames };
+static struct Variable scaleQualityVar = { GID_ScaleQualityList, 0, "SDL_RENDER_SCALE_QUALITY", "", NULL, NULL, scaleQualityNames };
 
 static char*
 GetVariable(const char* const name)
@@ -316,13 +317,31 @@ PurgeList(struct List* list)
     }
 }
 
-static Object*
-CreateRadioButtons(enum EGadgetID gid, struct Variable* var, const char* const name, const char* const hint)
+static void
+PopulateList(struct Variable * var)
 {
-    dprintf("gid %d, list %p, name '%s', hint '%s'\n", gid, var->list, name, hint);
+    const char* name;
+    int i = 0;
 
-    Object* rb = IIntuition->NewObject(RadioButtonClass, NULL,
-        GA_ID, gid,
+    while ((name = var->names[i++].displayName)) {
+        AllocNode(var->list, name);
+    }
+}
+
+static Object*
+CreateRadioButtons(struct Variable* var, const char* const name, const char* const hint)
+{
+    dprintf("gid %d, list %p, name '%s', hint '%s'\n", var->gid, var->list, name, hint);
+
+    var->list = CreateList();
+    if (!var->list) {
+        return NULL;
+    }
+
+    PopulateList(var);
+
+    var->object = IIntuition->NewObject(RadioButtonClass, NULL,
+        GA_ID, var->gid,
         GA_RelVerify, TRUE,
         GA_HintInfo, hint,
         RADIOBUTTON_Labels, var->list,
@@ -330,91 +349,44 @@ CreateRadioButtons(enum EGadgetID gid, struct Variable* var, const char* const n
         RADIOBUTTON_Selected, var->index,
         TAG_DONE);
 
-    if (!rb) {
+    if (!var->object) {
         dprintf("Failed to create %s buttons\n", name);
     }
 
-    return rb;
-}
-
-static void
-PopulateList(struct List* list, const struct OptionName names[])
-{
-    const char* name;
-    int i = 0;
-
-    while ((name = names[i++].displayName)) {
-        AllocNode(list, name);
-    }
+    return var->object;
 }
 
 static Object*
 CreateDriverButtons()
 {
-    driverVar.list = CreateList();
-
-    if (!driverVar.list) {
-        return NULL;
-    }
-
-    PopulateList(driverVar.list, driverVar.names);
-    driverVar.object =  CreateRadioButtons(GID_DriverList, &driverVar, "driver",
+    return CreateRadioButtons(&driverVar, "driver",
         "Select driver implementation:\n"
         "- compositing doesn't support some blend modes\n"
         "- opengl (MiniGL) doesn't support render targets and some blend modes\n"
         "- opengles2 supports most features\n"
         "- software supports most features but is not accelerated");
-
-    return driverVar.object;
 }
 
 static Object*
 CreateVsyncButtons()
 {
-    vsyncVar.list = CreateList();
-
-    if (!vsyncVar.list) {
-        return NULL;
-    }
-
-    PopulateList(vsyncVar.list, vsyncVar.names);
-    vsyncVar.object = CreateRadioButtons(GID_VsyncList, &vsyncVar, "vsync",
+    return CreateRadioButtons(&vsyncVar, "vsync",
         "Synchronize display update to monitor refresh rate");
-
-    return vsyncVar.object;
 }
 
 static Object*
 CreateBatchingButtons()
 {
-    batchingVar.list = CreateList();
-
-    if (!batchingVar.list) {
-        return NULL;
-    }
-
-    PopulateList(batchingVar.list, batchingVar.names);
-    batchingVar.object = CreateRadioButtons(GID_BatchingList, &batchingVar, "batching",
+    return CreateRadioButtons(&batchingVar, "batching",
         "Batching may improve drawing speed if application does many operations per frame "
         "and SDL2 is able to combine those");
-
-    return batchingVar.object;
 }
 
 static Object*
 CreateScaleQualityButtons()
 {
-    scaleQualityVar.list = CreateList();
-
-    if (!scaleQualityVar.list) {
-        return NULL;
-    }
-
-    PopulateList(scaleQualityVar.list, scaleQualityVar.names);
-    scaleQualityVar.object = CreateRadioButtons(GID_ScaleQualityList, &scaleQualityVar,
+    return CreateRadioButtons(&scaleQualityVar,
         "scale quality", "Nearest pixel sampling or linear filtering");
-
-    return scaleQualityVar.object;
 }
 
 static Object*
@@ -682,18 +654,18 @@ HandleMenuPick(Object* windowObject)
     return running;
 }
 
-static uint32
-GetSelection(Object* object)
+static void
+ReadSelection(struct Variable* var)
 {
     uint32 selected = 0;
 
-    const ULONG result = IIntuition->GetAttrs(object, RADIOBUTTON_Selected, &selected, TAG_DONE);
+    const ULONG result = IIntuition->GetAttrs(var->object, RADIOBUTTON_Selected, &selected, TAG_DONE);
 
     if (!result) {
         dprintf("Failed to get radiobutton selection\n");
     }
 
-    return selected;
+    var->index = selected;
 }
 
 static void
@@ -712,16 +684,16 @@ HandleGadgets(enum EGadgetID gid)
 
     switch (gid) {
         case GID_DriverList:
-            driverVar.index = GetSelection(driverVar.object);
+            ReadSelection(&driverVar);
             break;
         case GID_VsyncList:
-            vsyncVar.index = GetSelection(vsyncVar.object);
+            ReadSelection(&vsyncVar);
             break;
         case GID_BatchingList:
-            batchingVar.index = GetSelection(batchingVar.object);
+            ReadSelection(&batchingVar);
             break;
         case GID_ScaleQualityList:
-            scaleQualityVar.index = GetSelection(scaleQualityVar.object);
+            ReadSelection(&scaleQualityVar);
             break;
         case GID_SaveButton:
             SaveVariables();
