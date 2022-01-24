@@ -68,7 +68,6 @@ enum EGadgetID
     GID_BatchingList,
     GID_ScaleQualityList,
     GID_SaveButton,
-    GID_UseButton,
     GID_ResetButton,
     GID_CancelButton
 };
@@ -202,16 +201,6 @@ LoadVariables()
 }
 
 static void
-SetOrDeleteVariable(const struct Variable* const var)
-{
-    if (var->index > 0) {
-        SaveVariable(var->name, var->names[var->index].envName, 0);
-    } else {
-        DeleteVariable(var->name, 0);
-    }
-}
-
-static void
 SaveOrDeleteVariable(const struct Variable* const var)
 {
     if (var->index > 0) {
@@ -219,15 +208,6 @@ SaveOrDeleteVariable(const struct Variable* const var)
     } else {
         DeleteVariable(var->name, GVF_SAVE_VAR);
     }
-}
-
-static void
-SetVariables()
-{
-    SetOrDeleteVariable(&driverVar);
-    SetOrDeleteVariable(&vsyncVar);
-    SetOrDeleteVariable(&batchingVar);
-    SetOrDeleteVariable(&scaleQualityVar);
 }
 
 static void
@@ -456,17 +436,6 @@ CreateButton(enum EGadgetID gid, const char* const name, const char* const hint)
     return b;
 }
 
-#if 0
-// When variable is stored in "default" (non-existing) state, it would be
-// deleted from ENV. But if it's still in ENVARC, it will be reload on GetVar()
-// so it would probably be just confusing?
-static Object*
-CreateUseButton()
-{
-    return CreateButton(GID_UseButton, "_Use", "Store settings to ENV:");
-}
-#endif
-
 static Object*
 CreateSaveButton()
 {
@@ -525,11 +494,11 @@ CreateLayout()
             LAYOUT_Orientation, LAYOUT_ORIENT_HORIZ,
             LAYOUT_BevelStyle, BVS_GROUP,
             LAYOUT_Label, "Settings",
-            //LAYOUT_AddChild, CreateUseButton(),
             LAYOUT_AddChild, CreateSaveButton(),
             LAYOUT_AddChild, CreateResetButton(),
             LAYOUT_AddChild, CreateCancelButton(),
             TAG_DONE), // horizontal layout
+            CHILD_WeightedHeight, 0,
         TAG_DONE); // vertical main layout
 
     if (!layout) {
@@ -553,17 +522,17 @@ CreateMenu()
             MA_Label, "Main",
             MA_AddChild, IIntuition->NewObject(NULL, "menuclass",
                 MA_Type, T_ITEM,
-                MA_Label, "Iconify",
+                MA_Label, "I|Iconify",
                 MA_ID, MID_Iconify,
                 TAG_DONE),
             MA_AddChild, IIntuition->NewObject(NULL, "menuclass",
                 MA_Type, T_ITEM,
-                MA_Label, "About",
+                MA_Label, "A|About...",
                 MA_ID, MID_About,
                 TAG_DONE),
             MA_AddChild, IIntuition->NewObject(NULL, "menuclass",
                 MA_Type, T_ITEM,
-                MA_Label, "Quit",
+                MA_Label, "Q|Quit",
                 MA_ID, MID_Quit,
                 TAG_DONE),
             TAG_DONE),
@@ -756,9 +725,6 @@ HandleGadgets(enum EGadgetID gid)
             break;
         case GID_SaveButton:
             SaveVariables();
-            break;
-        case GID_UseButton:
-            SetVariables();
             break;
         case GID_ResetButton:
             ResetSelection(&driverVar);
