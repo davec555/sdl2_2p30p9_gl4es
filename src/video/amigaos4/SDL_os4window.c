@@ -286,14 +286,14 @@ OS4_CenterWindow(struct Screen * screen, SDL_Window * window)
     if (SDL_WINDOWPOS_ISCENTERED(window->windowed.x) ||
         SDL_WINDOWPOS_ISUNDEFINED(window->windowed.x)) {
 
-        window->windowed.x = (screen->Width - window->windowed.w) / 2;
+        window->x = window->windowed.x = (screen->Width - window->windowed.w) / 2;
         dprintf("X centered\n");
     }
 
     if (SDL_WINDOWPOS_ISCENTERED(window->windowed.y) ||
         SDL_WINDOWPOS_ISUNDEFINED(window->windowed.y)) {
 
-        window->windowed.y = (screen->Height - window->windowed.h) / 2;
+        window->y = window->windowed.y = (screen->Height - window->windowed.h) / 2;
         dprintf("Y centered\n");
     }
 }
