@@ -45,6 +45,8 @@
 #define DEBUG
 #include "../../main/amigaos4/SDL_os4debug.h"
 
+#define MIN_WINDOW_SIZE 100
+
 extern SDL_bool (*OS4_ResizeGlContext)(_THIS, SDL_Window * window);
 extern void (*OS4_UpdateGlWindowPointer)(_THIS, SDL_Window * window);
 
@@ -65,16 +67,12 @@ OS4_GetWindowSize(_THIS, struct Window * window, int * width, int * height)
     }
 }
 
+// TODO: cleanup, remove this
 void
 OS4_GetWindowActiveSize(SDL_Window * window, int * width, int * height)
 {
-    if (window->flags & SDL_WINDOW_MAXIMIZED) {
-        *width = window->max_w;
-        *height = window->max_h;
-    } else {
-        *width = window->w;
-        *height = window->h;
-    }
+    *width = window->w;
+    *height = window->h;
 }
 
 void
@@ -203,7 +201,7 @@ OS4_GetIDCMPFlags(SDL_Window * window, SDL_bool fullscreen)
 
     if (!fullscreen) {
         if (!(window->flags & SDL_WINDOW_BORDERLESS)) {
-            IDCMPFlags  |= IDCMP_CLOSEWINDOW | IDCMP_GADGETUP | IDCMP_CHANGEWINDOW;
+            IDCMPFlags |= IDCMP_CLOSEWINDOW | IDCMP_GADGETUP | IDCMP_CHANGEWINDOW;
         }
 
         if (window->flags & SDL_WINDOW_RESIZABLE) {
@@ -302,10 +300,10 @@ static void
 OS4_DefineWindowBox(SDL_Window * window, struct Screen * screen, SDL_bool fullscreen, SDL_Rect * box)
 {
     if (fullscreen && screen) {
-        box->x = 0; // window->x;
-        box->y = 0; // window->y;
-        box->w = screen->Width; // window->w;
-        box->h = screen->Height; // window->h;
+        box->x = 0;
+        box->y = 0;
+        box->w = screen->Width;
+        box->h = screen->Height;
     } else {
         OS4_CenterWindow(screen, window);
 
@@ -378,6 +376,35 @@ OS4_CreateIconifyGadgetForWindow(_THIS, SDL_Window * window)
     }
 }
 
+static int max(int a, int b)
+{
+    return (a > b) ? a : b;
+}
+
+static void
+OS4_SetWindowLimits(_THIS, SDL_Window * window, struct Window * syswin)
+{
+    const int minW = window->min_w ? max(MIN_WINDOW_SIZE, window->min_w) : MIN_WINDOW_SIZE;
+    const int minH = window->min_h ? max(MIN_WINDOW_SIZE, window->min_h) : MIN_WINDOW_SIZE;
+    const int maxW = window->max_w;
+    const int maxH = window->max_h;
+
+    dprintf("Window min size %d*%d, max size %d*%d\n", minW, minH, maxW, maxH);
+
+    const int borderWidth = syswin->BorderLeft + syswin->BorderRight;
+    const int borderHeight = syswin->BorderTop + syswin->BorderBottom;
+
+    BOOL ret = IIntuition->WindowLimits(syswin,
+        minW + borderWidth,
+        minH + borderHeight,
+        maxW ? (maxW + borderWidth) : -1,
+        maxH ? (maxH + borderHeight) : -1);
+
+    if (!ret) {
+        dprintf("Setting window limits failed\n");
+    }
+}
+
 static struct Window *
 OS4_CreateSystemWindow(_THIS, SDL_Window * window, SDL_VideoDisplay * display)
 {
@@ -426,18 +453,9 @@ OS4_CreateSystemWindow(_THIS, SDL_Window * window, SDL_VideoDisplay * display)
     }
 
     if (window->flags & SDL_WINDOW_RESIZABLE) {
-
         // If this window is resizable, reset window size limits
         // so that the user can actually resize it.
-        BOOL ret = IIntuition->WindowLimits(syswin,
-            syswin->BorderLeft + syswin->BorderRight + 100,
-            syswin->BorderTop + syswin->BorderBottom + 100,
-            -1,
-            -1);
-
-        if (!ret) {
-            dprintf("Failed to set window limits\n");
-        }
+        OS4_SetWindowLimits(_this, window, syswin);
     }
 
     return syswin;
@@ -511,16 +529,11 @@ OS4_SetWindowBox(_THIS, SDL_Window * window)
     SDL_WindowData *data = window->driverdata;
 
     if (data && data->syswin) {
-        int width, height;
-        LONG ret;
-
-        OS4_GetWindowActiveSize(window, &width, &height);
-
-        ret = IIntuition->SetWindowAttrs(data->syswin,
+        LONG ret = IIntuition->SetWindowAttrs(data->syswin,
             WA_Left, window->x,
             WA_Top, window->y,
-            WA_InnerWidth, width,
-            WA_InnerHeight, height,
+            WA_InnerWidth, window->w,
+            WA_InnerHeight, window->h,
             TAG_DONE);
 
         if (ret) {
@@ -973,31 +986,10 @@ void
 OS4_SetWindowMinMaxSize(_THIS, SDL_Window * window)
 {
     if (window->driverdata) {
-
-        dprintf("Window min size %d*%d, max size %d*%d\n",
-            window->min_w, window->min_h,
-            window->max_w, window->max_h);
-
         if (window->flags & SDL_WINDOW_RESIZABLE) {
+           SDL_WindowData *data = window->driverdata;
 
-            SDL_WindowData *data = window->driverdata;
-
-            if (data->syswin) {
-                struct Window *syswin = data->syswin;
-
-                int width = syswin->BorderLeft + syswin->BorderRight;
-                int height = syswin->BorderTop + syswin->BorderBottom;
-
-                BOOL ret =IIntuition->WindowLimits(data->syswin,
-                    window->min_w + width, window->min_h + height,
-                    window->max_w + width, window->max_h + height);
-
-                if (!ret) {
-                    dprintf("Setting window limits failed\n");
-                }
-            } else {
-                dprintf("NULL window\n");
-            }
+            OS4_SetWindowLimits(_this, window, data->syswin);
         } else {
             dprintf("Window is not resizable\n");
         }
@@ -1007,7 +999,19 @@ OS4_SetWindowMinMaxSize(_THIS, SDL_Window * window)
 void
 OS4_MaximizeWindow(_THIS, SDL_Window * window)
 {
-    dprintf("Maximizing '%s' to %d*%d\n", window->title, window->max_w, window->max_h);
+    SDL_WindowData *data = window->driverdata;
+
+    struct Window* syswin = data->syswin;
+    struct Screen* screen = syswin->WScreen;
+
+    const int borderWidth = syswin->BorderLeft + syswin->BorderRight;
+    const int borderHeight = syswin->BorderTop + syswin->BorderBottom;
+
+    // If there are no user-given limits, use screen dimensions
+    const int width = window->max_w ? window->max_w : (screen->Width - borderWidth);
+    const int height = window->max_h ? window->max_h : (screen->Height - borderHeight);
+
+    dprintf("Maximizing '%s' to %d*%d\n", window->title, width, height);
 
     if (window->flags & SDL_WINDOW_MINIMIZED) {
         OS4_UniconifyWindow(_this, window);
@@ -1017,7 +1021,22 @@ OS4_MaximizeWindow(_THIS, SDL_Window * window)
     // context can be resized accordingly...
     window->flags |= SDL_WINDOW_MAXIMIZED;
 
-    OS4_ResizeWindow(_this, window, window->max_w, window->max_h);
+    dprintf("Remember original window x %d, y %d, w %d, h %d\n",
+        window->x, window->y, window->w, window->h);
+
+    // Remember old values for restoring
+    data->originalX = window->x;
+    data->originalY = window->y;
+    data->originalW = window->w;
+    data->originalH = window->h;
+
+    // Center maximized window
+    window->x = (screen->Width - width - borderWidth) / 2;
+    window->y = (screen->Height - height - borderHeight) / 2;
+    window->w = width;
+    window->h = height;
+
+    OS4_SetWindowBox(_this, window);
 
     // ...then remove the flag so that user event can be triggered
     window->flags &= ~SDL_WINDOW_MAXIMIZED;
@@ -1036,12 +1055,21 @@ OS4_MinimizeWindow(_THIS, SDL_Window * window)
 void
 OS4_RestoreWindow(_THIS, SDL_Window * window)
 {
-    dprintf("Restoring '%s' to %d*%d\n", window->title, window->w, window->h);
-
     if (window->flags & SDL_WINDOW_MINIMIZED) {
+        dprintf("Restoring iconified '%s'\n", window->title);
         OS4_UniconifyWindow(_this, window);
     } else if (window->flags & SDL_WINDOW_MAXIMIZED) {
-        OS4_ResizeWindow(_this, window, window->w, window->h);
+        SDL_WindowData *data = window->driverdata;
+
+        window->x = data->originalX;
+        window->y = data->originalY;
+        window->w = data->originalW;
+        window->h = data->originalH;
+
+        dprintf("Restoring '%s' to x %d, y %d, w %d, h %d\n", window->title,
+            window->x, window->y, window->w, window->h);
+
+        OS4_SetWindowBox(_this, window);
 
         SDL_SendWindowEvent(window, SDL_WINDOWEVENT_RESTORED, 0, 0);
     } else {
