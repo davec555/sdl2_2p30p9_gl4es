@@ -67,36 +67,25 @@ OS4_GetWindowSize(_THIS, struct Window * window, int * width, int * height)
     }
 }
 
-// TODO: cleanup, remove this
-void
-OS4_GetWindowActiveSize(SDL_Window * window, int * width, int * height)
-{
-    *width = window->w;
-    *height = window->h;
-}
-
 void
 OS4_WaitForResize(_THIS, SDL_Window * window, int * width, int * height)
 {
     SDL_WindowData * data = window->driverdata;
 
     int counter = 0;
-    int activeWidth, activeHeight;
     int w = 0;
     int h = 0;
-
-    OS4_GetWindowActiveSize(window, &activeWidth, &activeHeight);
 
     while (counter++ < 100) {
         OS4_GetWindowSize(_this, data->syswin, &w, &h);
 
-        if (w == activeWidth && h == activeHeight) {
+        if (w == window->w && h == window->h) {
             break;
         }
 
         dprintf("Waiting for Intuition %d\n", counter);
         dprintf("System window size (%d * %d), SDL window size (%d * %d)\n",
-            w, h, activeWidth, activeHeight);
+            w, h, window->w, window->h);
         usleep(1000);
     }
 
