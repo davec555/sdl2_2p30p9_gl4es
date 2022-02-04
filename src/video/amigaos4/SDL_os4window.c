@@ -420,7 +420,7 @@ OS4_CreateSystemWindow(_THIS, SDL_Window * window, SDL_VideoDisplay * display)
     syswin = IIntuition->OpenWindowTags(
         NULL,
         WA_PubScreen, screen,
-        WA_Title, fullscreen ? NULL : window->title,
+        WA_Title, (fullscreen || (window->flags & SDL_WINDOW_BORDERLESS)) ? NULL : window->title,
         WA_ScreenTitle, window->title,
         WA_Left, box.x,
         WA_Top, box.y,
@@ -1088,8 +1088,8 @@ OS4_UniconifyWindow(_THIS, SDL_Window * window)
     }
 }
 
-void
-OS4_SetWindowResizable (_THIS, SDL_Window * window, SDL_bool resizable)
+static void
+OS4_RecreateWindow(_THIS, SDL_Window * window)
 {
     if (window->flags & SDL_WINDOW_FOREIGN) {
         dprintf("Cannot modify native window '%s'\n", window->title);
@@ -1117,6 +1117,18 @@ OS4_SetWindowResizable (_THIS, SDL_Window * window, SDL_bool resizable)
     } else {
         dprintf("Failed to re-create window '%s'\n", window->title);
     }
+}
+
+void
+OS4_SetWindowResizable (_THIS, SDL_Window * window, SDL_bool resizable)
+{
+    OS4_RecreateWindow(_this, window);
+}
+
+void
+OS4_SetWindowBordered(_THIS, SDL_Window * window, SDL_bool bordered)
+{
+    OS4_RecreateWindow(_this, window);
 }
 
 void
