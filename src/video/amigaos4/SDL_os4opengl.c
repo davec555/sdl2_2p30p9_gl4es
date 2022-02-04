@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2021 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2022 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -419,32 +419,28 @@ OS4_GL_ResizeContext(_THIS, SDL_Window * window)
     if (IMiniGL) {
         SDL_WindowData *data = window->driverdata;
 
-        if (data) {
-            int width, height;
+        int width, height;
 
-            uint32 depth = IGraphics->GetBitMapAttr(data->syswin->RPort->BitMap, BMA_BITSPERPIXEL);
+        uint32 depth = IGraphics->GetBitMapAttr(data->syswin->RPort->BitMap, BMA_BITSPERPIXEL);
 
-            OS4_GetWindowActiveSize(window, &width, &height);
+        OS4_GetWindowActiveSize(window, &width, &height);
 
-            if (OS4_GL_AllocateBuffers(_this, width, height, depth, data)) {
+        if (OS4_GL_AllocateBuffers(_this, width, height, depth, data)) {
 
-                dprintf("Resizing MiniGL context to %d*%d\n", width, height);
+            dprintf("Resizing MiniGL context to %d*%d\n", width, height);
 
-                ((struct GLContextIFace *)data->glContext)->MGLUpdateContextTags(
-                                MGLCC_FrontBuffer, data->glFrontBuffer,
-                                MGLCC_BackBuffer, data->glBackBuffer,
-                                TAG_DONE);
+            ((struct GLContextIFace *)data->glContext)->MGLUpdateContextTags(
+                            MGLCC_FrontBuffer, data->glFrontBuffer,
+                            MGLCC_BackBuffer, data->glBackBuffer,
+                            TAG_DONE);
 
-                ((struct GLContextIFace *)data->glContext)->GLViewport(0, 0, width, height);
+            ((struct GLContextIFace *)data->glContext)->GLViewport(0, 0, width, height);
 
-                return SDL_TRUE;
+            return SDL_TRUE;
 
-            } else {
-                dprintf("Failed to re-allocate MiniGL buffers\n");
-                //SDL_Quit();
-            }
         } else {
-            dprintf("Window data NULL\n");
+            dprintf("Failed to re-allocate MiniGL buffers\n");
+            //SDL_Quit();
         }
     } else {
         OS4_GL_LogLibraryError();

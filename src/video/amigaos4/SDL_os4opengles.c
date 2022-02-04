@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2019 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2022 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -318,26 +318,24 @@ OS4_GLES_ResizeContext(_THIS, SDL_Window * window)
 #if MANAGE_BITMAP
         SDL_WindowData *data = window->driverdata;
 
-        if (data) {
-            int width, height;
+        int width, height;
 
-            uint32 depth = IGraphics->GetBitMapAttr(data->syswin->RPort->BitMap, BMA_BITSPERPIXEL);
+        uint32 depth = IGraphics->GetBitMapAttr(data->syswin->RPort->BitMap, BMA_BITSPERPIXEL);
 
-            OS4_GetWindowActiveSize(window, &width, &height);
+        OS4_GetWindowActiveSize(window, &width, &height);
 
-            if (OS4_GL_AllocateBuffers(_this, width, height, depth, data)) {
+        if (OS4_GL_AllocateBuffers(_this, width, height, depth, data)) {
 
-                dprintf("Resizing context to %d*%d\n", width, height);
+            dprintf("Resizing context to %d*%d\n", width, height);
 
-                aglSetBitmap(data->glBackBuffer);
+            aglSetBitmap(data->glBackBuffer);
 
-                glViewport(0, 0, width, height);
-                return SDL_TRUE;
+            glViewport(0, 0, width, height);
+            return SDL_TRUE;
 
-            } else {
-                dprintf("Failed to re-allocate OpenGL ES 2 buffers\n");
-                //SDL_Quit();
-            }
+        } else {
+            dprintf("Failed to re-allocate OpenGL ES 2 buffers\n");
+            //SDL_Quit();
         }
 #endif
         return SDL_TRUE;
