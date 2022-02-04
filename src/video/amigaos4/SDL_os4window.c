@@ -542,49 +542,9 @@ OS4_SetWindowBox(_THIS, SDL_Window * window)
 void
 OS4_SetWindowPosition(_THIS, SDL_Window * window)
 {
-    SDL_WindowData *data = window->driverdata;
-
     dprintf("New window position %d, %d\n", window->x, window->y);
 
-    if (data->syswin) {
-        LONG ret = IIntuition->SetWindowAttrs(data->syswin,
-            WA_Left, window->x,
-            WA_Top, window->y,
-            TAG_DONE);
-
-        if (ret) {
-            dprintf("SetWindowAttrs() returned %d\n", ret);
-        }
-    }
-}
-
-static void
-OS4_ResizeWindow(_THIS, SDL_Window * window, int width, int height)
-{
-    if (width > 0 && height > 0) {
-        SDL_WindowData *data = window->driverdata;
-
-        LONG ret = IIntuition->SetWindowAttrs(data->syswin,
-            WA_InnerWidth, width,
-            WA_InnerHeight, height,
-            TAG_DONE);
-
-        if (ret) {
-            dprintf("SetWindowAttrs() returned %d\n", ret);
-        }
-
-        OS4_WaitForResize(_this, window, NULL, NULL);
-
-        if (SDL_IsShapedWindow(window)) {
-            OS4_ResizeWindowShape(window);
-        }
-
-        if (data->glContext) {
-            OS4_ResizeGlContext(_this, window);
-        }
-    } else {
-        dprintf("Invalid width %d or height %d\n", width, height);
-    }
+    OS4_SetWindowBox(_this, window);
 }
 
 void
@@ -599,10 +559,9 @@ OS4_SetWindowSize(_THIS, SDL_Window * window)
         OS4_GetWindowSize(_this, data->syswin, &width, &height);
 
         if (width != window->w || height != window->h) {
-
             dprintf("New window size %d*%d\n", window->w, window->h);
 
-            OS4_ResizeWindow(_this, window, window->w, window->h);
+            OS4_SetWindowBox(_this, window);
         } else {
             dprintf("Ignored size request %d*%d\n", width, height);
         }
