@@ -130,11 +130,29 @@ OS4_RemoveAppIcon(_THIS, SDL_WindowData *data)
     }
 }
 
+static void
+OS4_CreateAppWindow(_THIS, SDL_Window * window)
+{
+    SDL_VideoData *videodata = (SDL_VideoData *) _this->driverdata;
+    SDL_WindowData *data = window->driverdata;
+
+    if (data->appWin) {
+        dprintf("AppWindow already exists for window '%s'\n", window->title);
+        return;
+    }
+
+    // Pass SDL window as user data
+    data->appWin = IWorkbench->AddAppWindow(0, (ULONG)window, data->syswin,
+        videodata->appMsgPort, TAG_DONE);
+
+    if (!data->appWin) {
+        dprintf("Couldn't create AppWindow\n");
+    }
+}
+
 static int
 OS4_SetupWindowData(_THIS, SDL_Window * sdlwin, struct Window * syswin)
 {
-    SDL_VideoData *videodata = (SDL_VideoData *) _this->driverdata;
-
     SDL_WindowData *data;
 
     if (sdlwin->driverdata) {
@@ -164,15 +182,6 @@ OS4_SetupWindowData(_THIS, SDL_Window * sdlwin, struct Window * syswin)
 
         sdlwin->w = width;
         sdlwin->h = height;
-    }
-
-    // Pass SDL window as user data
-    data->appWin = IWorkbench->AddAppWindow(0, (ULONG)sdlwin, syswin,
-        videodata->appMsgPort, TAG_DONE);
-
-    if (!data->appWin) {
-        dprintf("Couldn't create AppWindow\n");
-        // It's sad but don't fail because of this
     }
 
     return 0;
@@ -466,7 +475,6 @@ OS4_CreateWindow(_THIS, SDL_Window * window)
     }
 
     if (OS4_SetupWindowData(_this, window, syswin) < 0) {
-
         // There is no AppWindow in this scenario
         OS4_CloseSystemWindow(_this, syswin);
 
@@ -474,6 +482,7 @@ OS4_CreateWindow(_THIS, SDL_Window * window)
     }
 
     OS4_CreateIconifyGadgetForWindow(_this, window);
+    OS4_CreateAppWindow(_this, window);
 
     return 0;
 }
@@ -734,8 +743,8 @@ OS4_SetWindowFullscreen(_THIS, SDL_Window * window, SDL_VideoDisplay * display, 
             data->syswin = OS4_CreateSystemWindow(_this, window, fullscreen ? display : NULL);
 
             if (data->syswin) {
-
                 OS4_CreateIconifyGadgetForWindow(_this, window);
+                OS4_CreateAppWindow(_this, window);
 
                 // Make sure the new window is active
                 OS4_ShowWindow(_this, window);
@@ -1114,6 +1123,7 @@ OS4_RecreateWindow(_THIS, SDL_Window * window)
 
     if (data->syswin) {
         OS4_CreateIconifyGadgetForWindow(_this, window);
+        OS4_CreateAppWindow(_this, window);
 
         // Make sure the new window is active
         OS4_ShowWindow(_this, window);
