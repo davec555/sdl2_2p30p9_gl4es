@@ -574,7 +574,7 @@ OS4_ShowWindow(_THIS, SDL_Window * window)
     SDL_WindowData *data = window->driverdata;
 
     if (data->appIcon) {
-        dprintf("Window '%s' is in iconified (minimized) stated, ignoring show request\n");
+        dprintf("Window '%s' is in iconified (minimized) stated, ignoring show request\n", window->title);
         return;
     }
 
