@@ -573,6 +573,11 @@ OS4_ShowWindow(_THIS, SDL_Window * window)
 {
     SDL_WindowData *data = window->driverdata;
 
+    if (data->appIcon) {
+        dprintf("Window '%s' is in iconified (minimized) stated, ignoring show request\n");
+        return;
+    }
+
     if (data->syswin) {
         LONG ret;
 
@@ -1076,15 +1081,17 @@ OS4_IconifyWindow(_THIS, SDL_Window * window)
 void
 OS4_UniconifyWindow(_THIS, SDL_Window * window)
 {
-    if (window->flags & SDL_WINDOW_MINIMIZED) {
+    SDL_WindowData *data = window->driverdata;
+
+    if (data->appIcon) {
         dprintf("Restoring '%s'\n", window->title);
 
-        OS4_RemoveAppIcon(_this, window->driverdata);
+        OS4_RemoveAppIcon(_this, data);
         OS4_ShowWindow(_this, window);
 
         SDL_SendWindowEvent(window, SDL_WINDOWEVENT_RESTORED, 0, 0);
     } else {
-        dprintf("Window '%s' isn't in iconified state\n", window->title);
+        dprintf("Window '%s' isn't in iconified (minimized) state\n", window->title);
     }
 }
 
