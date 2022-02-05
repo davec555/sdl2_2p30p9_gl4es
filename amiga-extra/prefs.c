@@ -25,7 +25,7 @@
 #include <proto/exec.h>
 #include <proto/icon.h>
 #include <proto/intuition.h>
-#include <proto/radiobutton.h>
+#include <proto/chooser.h>
 
 #include <intuition/classes.h>
 #include <intuition/menuclass.h>
@@ -35,13 +35,14 @@
 
 #include <gadgets/layout.h>
 #include <gadgets/button.h>
-#include <gadgets/radiobutton.h>
+#include <gadgets/chooser.h>
+#include <images/label.h>
 
 #include <stdio.h>
 #include <string.h>
 
 #define NAME "SDL2 Prefs"
-#define VERSION "1.2"
+#define VERSION "1.3"
 #define MAX_PATH_LEN 1024
 #define MAX_VARIABLE_NAME_LEN 32
 
@@ -52,14 +53,16 @@ static struct ClassLibrary* WindowBase;
 static struct ClassLibrary* RequesterBase;
 static struct ClassLibrary* ButtonBase;
 static struct ClassLibrary* LayoutBase;
+static struct ClassLibrary* LabelBase;
 
-struct RadioButtonIFace* IRadioButton; 
+struct ChooserIFace* IChooser;
 
 static Class* WindowClass;
 static Class* RequesterClass;
 static Class* ButtonClass;
 static Class* LayoutClass;
-Class* RadioButtonClass;
+static Class* LabelClass;
+Class* ChooserClass;
 
 enum EGadgetID
 {
@@ -258,21 +261,24 @@ OpenClasses()
     LayoutBase = IIntuition->OpenClass("gadgets/layout.gadget", version, &LayoutClass);
     if (!LayoutBase) dprintf("Failed to open layout.gadget\n");
 
-    RadioButtonBase = (struct Library *)IIntuition->OpenClass("gadgets/radiobutton.gadget", version, &RadioButtonClass);
-    if (!RadioButtonBase) dprintf("Failed to open radiobutton.gadget\n");
+    LabelBase = IIntuition->OpenClass("images/label.image", version, &LabelClass);
+    if (!LabelBase) dprintf("Failed to open label.image\n");
 
-    IRadioButton = (struct RadioButtonIFace *)IExec->GetInterface((struct Library *)RadioButtonBase, "main", 1, NULL);
+    ChooserBase = (struct Library *)IIntuition->OpenClass("gadgets/chooser.gadget", version, &ChooserClass);
+    if (!ChooserBase) dprintf("Failed to open chooser.gadget\n");
 
-    if (!IRadioButton) {
-        dprintf("Failed to get RadioButtonIFace\n");
+    IChooser = (struct ChooserIFace *)IExec->GetInterface((struct Library *)ChooserBase, "main", 1, NULL);
+    if (!IChooser) {
+        dprintf("Failed to get ChooserIFace\n");
     }
 
     return WindowBase &&
            RequesterBase &&
            ButtonBase &&
            LayoutBase &&
-           RadioButtonBase &&
-           IRadioButton;
+           LabelBase &&
+           ChooserBase &&
+           IChooser;
 }
 
 static void
@@ -280,15 +286,16 @@ CloseClasses()
 {
     dprintf("\n");
 
-    if (IRadioButton) {
-        IExec->DropInterface((struct Interface *)(IRadioButton));
+    if (IChooser) {
+        IExec->DropInterface((struct Interface *)(IChooser));
     }
 
     IIntuition->CloseClass(WindowBase);
     IIntuition->CloseClass(RequesterBase);
     IIntuition->CloseClass(ButtonBase);
     IIntuition->CloseClass(LayoutBase);
-    IIntuition->CloseClass((struct ClassLibrary *)RadioButtonBase);
+    IIntuition->CloseClass(LabelBase);
+    IIntuition->CloseClass((struct ClassLibrary *)ChooserBase);
 }
 
 static struct List*
@@ -306,14 +313,16 @@ CreateList()
 }
 
 static void
-AllocNode(struct List* list, const char* const name)
+AllocChooserNode(struct List* list, const char* const name)
 {
     dprintf("%p '%s'\n", list, name);
 
-    struct Node* node = IRadioButton->AllocRadioButtonNode(0, RBNA_Label, name, TAG_DONE);
+    struct Node* node = IChooser->AllocChooserNode(CNA_CopyText, TRUE,
+                                                   CNA_Text, name,
+                                                   TAG_DONE);
 
     if (!node) {
-        dprintf("Failed to allocate list node\n");
+        dprintf("Failed to allocate chooser node\n");
         return;
     }
 
@@ -321,7 +330,7 @@ AllocNode(struct List* list, const char* const name)
 }
 
 static void
-PurgeList(struct List* list)
+PurgeChooserList(struct List* list)
 {
     dprintf("%p\n", list);
 
@@ -329,7 +338,7 @@ PurgeList(struct List* list)
         struct Node* node;
 
         while ((node = IExec->RemTail(list))) {
-            IRadioButton->FreeRadioButtonNode(node);
+            IChooser->FreeChooserNode(node);
         }
 
         IExec->FreeSysObject(ASOT_LIST, list);
@@ -337,18 +346,18 @@ PurgeList(struct List* list)
 }
 
 static void
-PopulateList(struct Variable * var)
+PopulateChooserList(struct Variable * var)
 {
     const char* name;
     int i = 0;
 
     while ((name = var->names[i++].displayName)) {
-        AllocNode(var->list, name);
+        AllocChooserNode(var->list, name);
     }
 }
 
 static Object*
-CreateRadioButtons(struct Variable* var, const char* const name, const char* const hint)
+CreateChooserButtons(struct Variable* var, const char* const name, const char* const hint)
 {
     dprintf("gid %d, list %p, name '%s', hint '%s'\n", var->gid, var->list, name, hint);
 
@@ -357,15 +366,14 @@ CreateRadioButtons(struct Variable* var, const char* const name, const char* con
         return NULL;
     }
 
-    PopulateList(var);
+    PopulateChooserList(var);
 
-    var->object = IIntuition->NewObject(RadioButtonClass, NULL,
+    var->object = IIntuition->NewObject(ChooserClass, NULL,
         GA_ID, var->gid,
         GA_RelVerify, TRUE,
         GA_HintInfo, hint,
-        RADIOBUTTON_Labels, var->list,
-        RADIOBUTTON_Spacing, 4,
-        RADIOBUTTON_Selected, var->index,
+        CHOOSER_Labels, var->list,
+        CHOOSER_Selected, var->index,
         TAG_DONE);
 
     if (!var->object) {
@@ -378,7 +386,7 @@ CreateRadioButtons(struct Variable* var, const char* const name, const char* con
 static Object*
 CreateDriverButtons()
 {
-    return CreateRadioButtons(&driverVar, "driver",
+    return CreateChooserButtons(&driverVar, "driver",
         "Select driver implementation:\n"
         "- compositing doesn't support some blend modes\n"
         "- opengl (MiniGL) doesn't support render targets and some blend modes\n"
@@ -389,14 +397,14 @@ CreateDriverButtons()
 static Object*
 CreateVsyncButtons()
 {
-    return CreateRadioButtons(&vsyncVar, "vsync",
+    return CreateChooserButtons(&vsyncVar, "vsync",
         "Synchronize display update to monitor refresh rate");
 }
 
 static Object*
 CreateBatchingButtons()
 {
-    return CreateRadioButtons(&batchingVar, "batching",
+    return CreateChooserButtons(&batchingVar, "batching",
         "Batching may improve drawing speed if application does many operations per frame "
         "and SDL2 is able to combine those");
 }
@@ -404,14 +412,14 @@ CreateBatchingButtons()
 static Object*
 CreateScaleQualityButtons()
 {
-    return CreateRadioButtons(&scaleQualityVar, "scale quality",
+    return CreateChooserButtons(&scaleQualityVar, "scale quality",
         "Nearest pixel sampling or linear filtering");
 }
 
 static Object*
 CreateLogicalSizeModeButtons()
 {
-    return CreateRadioButtons(&logicalSizeModeVar, "logical size mode",
+    return CreateChooserButtons(&logicalSizeModeVar, "logical size mode",
         "Scaling policy for SDL_RenderSetLogicalSize");
 }
 
@@ -464,35 +472,33 @@ CreateLayout()
             LAYOUT_BevelStyle, BVS_GROUP,
             LAYOUT_Label, "2D Renderer Options",
             LAYOUT_AddChild, IIntuition->NewObject(LayoutClass, NULL,
-                LAYOUT_BevelStyle, BVS_GROUP,
-                LAYOUT_Label, "Driver",
-                LAYOUT_Orientation, LAYOUT_ORIENT_HORIZ,
-                LAYOUT_AddChild, CreateDriverButtons(),
+                LAYOUT_HorizAlignment, LALIGN_CENTER,
+                LAYOUT_AddChild, IIntuition->NewObject(LayoutClass, NULL,
+                    LAYOUT_Orientation, LAYOUT_ORIENT_VERT,
+                    LAYOUT_AddChild, CreateDriverButtons(),
+                    CHILD_Label, IIntuition->NewObject(LabelClass, NULL,
+                        LABEL_Text, "_Driver",
+                    TAG_DONE),
+                    LAYOUT_AddChild, CreateVsyncButtons(),
+                    CHILD_Label, IIntuition->NewObject(LabelClass, NULL,
+                        LABEL_Text, "_Vertical Sync",
+                    TAG_DONE),
+                    LAYOUT_AddChild, CreateBatchingButtons(),
+                    CHILD_Label, IIntuition->NewObject(LabelClass, NULL,
+                        LABEL_Text, "_Batching Mode",
+                    TAG_DONE),
+                    LAYOUT_AddChild, CreateScaleQualityButtons(),
+                    CHILD_Label, IIntuition->NewObject(LabelClass, NULL,
+                        LABEL_Text, "Scale _Quality",
+                    TAG_DONE),
+                    LAYOUT_AddChild, CreateLogicalSizeModeButtons(),
+                    CHILD_Label, IIntuition->NewObject(LabelClass, NULL,
+                        LABEL_Text, "_Logical Size Mode",
+                    TAG_DONE),
                 TAG_DONE),
-            LAYOUT_AddChild, IIntuition->NewObject(LayoutClass, NULL,
-                LAYOUT_BevelStyle, BVS_GROUP,
-                LAYOUT_Label, "Vertical Sync",
-                LAYOUT_Orientation, LAYOUT_ORIENT_HORIZ,
-                LAYOUT_AddChild, CreateVsyncButtons(),
-                TAG_DONE),
-            LAYOUT_AddChild, IIntuition->NewObject(LayoutClass, NULL,
-                LAYOUT_BevelStyle, BVS_GROUP,
-                LAYOUT_Label, "Batching Mode",
-                LAYOUT_Orientation, LAYOUT_ORIENT_HORIZ,
-                LAYOUT_AddChild, CreateBatchingButtons(),
-                TAG_DONE),
-            LAYOUT_AddChild, IIntuition->NewObject(LayoutClass, NULL,
-                LAYOUT_BevelStyle, BVS_GROUP,
-                LAYOUT_Label, "Scale Quality",
-                LAYOUT_Orientation, LAYOUT_ORIENT_HORIZ,
-                LAYOUT_AddChild, CreateScaleQualityButtons(),
-                TAG_DONE),
-            LAYOUT_AddChild, IIntuition->NewObject(LayoutClass, NULL,
-                LAYOUT_BevelStyle, BVS_GROUP,
-                LAYOUT_Label, "Logical Size Mode",
-                LAYOUT_Orientation, LAYOUT_ORIENT_HORIZ,
-                LAYOUT_AddChild, CreateLogicalSizeModeButtons(),
-                TAG_DONE),
+                CHILD_WeightedWidth, 0,
+            TAG_DONE),
+
             TAG_DONE), // horizontal layout
         LAYOUT_AddChild, IIntuition->NewObject(LayoutClass, NULL,
             LAYOUT_Orientation, LAYOUT_ORIENT_HORIZ,
@@ -533,6 +539,10 @@ CreateMenu()
                 MA_Type, T_ITEM,
                 MA_Label, "A|About...",
                 MA_ID, MID_About,
+                TAG_DONE),
+            MA_AddChild, IIntuition->NewObject(NULL, "menuclass",
+                MA_Type, T_ITEM,
+                MA_Separator, TRUE,
                 TAG_DONE),
             MA_AddChild, IIntuition->NewObject(NULL, "menuclass",
                 MA_Type, T_ITEM,
@@ -691,7 +701,7 @@ ReadSelection(struct Variable* var)
 {
     uint32 selected = 0;
 
-    const ULONG result = IIntuition->GetAttrs(var->object, RADIOBUTTON_Selected, &selected, TAG_DONE);
+    const ULONG result = IIntuition->GetAttrs(var->object, CHOOSER_Selected, &selected, TAG_DONE);
 
     if (!result) {
         dprintf("Failed to get radiobutton selection\n");
@@ -704,7 +714,7 @@ static void
 ResetSelection(struct Variable* var)
 {
     var->index = 0;
-    IIntuition->RefreshSetGadgetAttrs((struct Gadget *)var->object, window, NULL, RADIOBUTTON_Selected, 0, TAG_DONE);
+    IIntuition->RefreshSetGadgetAttrs((struct Gadget *)var->object, window, NULL, CHOOSER_Selected, 0, TAG_DONE);
 }
 
 static BOOL
@@ -836,11 +846,11 @@ main(int argc, char** argv)
             appPort = NULL;
         }
 
-        PurgeList(driverVar.list);
-        PurgeList(vsyncVar.list);
-        PurgeList(batchingVar.list);
-        PurgeList(scaleQualityVar.list);
-        PurgeList(logicalSizeModeVar.list);
+        PurgeChooserList(driverVar.list);
+        PurgeChooserList(vsyncVar.list);
+        PurgeChooserList(batchingVar.list);
+        PurgeChooserList(scaleQualityVar.list);
+        PurgeChooserList(logicalSizeModeVar.list);
     }
 
     CloseClasses();
