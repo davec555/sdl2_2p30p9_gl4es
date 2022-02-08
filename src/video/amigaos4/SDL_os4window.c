@@ -382,21 +382,22 @@ static int max(int a, int b)
 static void
 OS4_SetWindowLimits(_THIS, SDL_Window * window, struct Window * syswin)
 {
-    const int minW = window->min_w ? max(MIN_WINDOW_SIZE, window->min_w) : MIN_WINDOW_SIZE;
-    const int minH = window->min_h ? max(MIN_WINDOW_SIZE, window->min_h) : MIN_WINDOW_SIZE;
-    const int maxW = window->max_w;
-    const int maxH = window->max_h;
-
-    dprintf("Window min size %d*%d, max size %d*%d\n", minW, minH, maxW, maxH);
-
     const int borderWidth = syswin->BorderLeft + syswin->BorderRight;
     const int borderHeight = syswin->BorderTop + syswin->BorderBottom;
 
-    BOOL ret = IIntuition->WindowLimits(syswin,
-        minW + borderWidth,
-        minH + borderHeight,
-        maxW ? (maxW + borderWidth) : -1,
-        maxH ? (maxH + borderHeight) : -1);
+    const int minW = borderWidth + (window->min_w ? max(MIN_WINDOW_SIZE, window->min_w) : MIN_WINDOW_SIZE);
+    const int minH = borderHeight + (window->min_h ? max(MIN_WINDOW_SIZE, window->min_h) : MIN_WINDOW_SIZE);
+
+    const int maxW = window->max_w ? (borderWidth + window->max_w) : -1;
+    const int maxH = window->max_h ? (borderHeight + window->max_h) : -1;
+
+    dprintf("SDL_Window limits: min_w %d, min_h %d, max_w %d, max_h %d (0 means default)\n",
+            window->min_w, window->min_h, window->max_w, window->max_h);
+
+    dprintf("System window limits (with borders): minW %d, minH %d, maxW %d, maxH %d (-1 means no limit)\n",
+            minW, minH, maxW, maxH);
+
+    BOOL ret = IIntuition->WindowLimits(syswin, minW, minH, maxW, maxH);
 
     if (!ret) {
         dprintf("Setting window limits failed\n");
@@ -450,7 +451,7 @@ OS4_CreateSystemWindow(_THIS, SDL_Window * window, SDL_VideoDisplay * display)
         return NULL;
     }
 
-    if (window->flags & SDL_WINDOW_RESIZABLE) {
+    if (window->flags & SDL_WINDOW_RESIZABLE && !fullscreen) {
         // If this window is resizable, reset window size limits
         // so that the user can actually resize it.
         OS4_SetWindowLimits(_this, window, syswin);
