@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2021 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2022 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -183,13 +183,9 @@ OS4_GL_CreateContext(_THIS, SDL_Window * window)
     dprintf("Called\n");
 
     if (IMiniGL) {
-
-        int width, height;
         uint32 depth;
 
         SDL_WindowData * data = window->driverdata;
-
-        OS4_GetWindowActiveSize(window, &width, &height);
 
         if (data->glContext) {
             struct GLContextIFace *IGL = (struct GLContextIFace *)data->glContext;
@@ -203,7 +199,7 @@ OS4_GL_CreateContext(_THIS, SDL_Window * window)
 
         depth = IGraphics->GetBitMapAttr(data->syswin->RPort->BitMap, BMA_BITSPERPIXEL);
 
-        if (!OS4_GL_AllocateBuffers(_this, width, height, depth, data)) {
+        if (!OS4_GL_AllocateBuffers(_this, window->w, window->h, depth, data)) {
             SDL_SetError("Failed to allocate MiniGL buffers");
             return NULL;
         }
@@ -223,12 +219,11 @@ OS4_GL_CreateContext(_THIS, SDL_Window * window)
             dprintf("MiniGL context %p created for window '%s'\n",
                 data->glContext, window->title);
 
-            ((struct GLContextIFace *)data->glContext)->GLViewport(0, 0, width, height);
+            ((struct GLContextIFace *)data->glContext)->GLViewport(0, 0, window->w, window->h);
             mglMakeCurrent(data->glContext);
             mglLockMode(MGL_LOCK_SMART);
 
             return data->glContext;
-
         } else {
             dprintf("Failed to create MiniGL context for window '%s'\n", window->title);
 
@@ -419,32 +414,24 @@ OS4_GL_ResizeContext(_THIS, SDL_Window * window)
     if (IMiniGL) {
         SDL_WindowData *data = window->driverdata;
 
-        if (data) {
-            int width, height;
+        uint32 depth = IGraphics->GetBitMapAttr(data->syswin->RPort->BitMap, BMA_BITSPERPIXEL);
 
-            uint32 depth = IGraphics->GetBitMapAttr(data->syswin->RPort->BitMap, BMA_BITSPERPIXEL);
+        if (OS4_GL_AllocateBuffers(_this, window->w, window->h, depth, data)) {
 
-            OS4_GetWindowActiveSize(window, &width, &height);
+            dprintf("Resizing MiniGL context to %d*%d\n", window->w, window->h);
 
-            if (OS4_GL_AllocateBuffers(_this, width, height, depth, data)) {
+            ((struct GLContextIFace *)data->glContext)->MGLUpdateContextTags(
+                            MGLCC_FrontBuffer, data->glFrontBuffer,
+                            MGLCC_BackBuffer, data->glBackBuffer,
+                            TAG_DONE);
 
-                dprintf("Resizing MiniGL context to %d*%d\n", width, height);
+            ((struct GLContextIFace *)data->glContext)->GLViewport(0, 0, window->w, window->h);
 
-                ((struct GLContextIFace *)data->glContext)->MGLUpdateContextTags(
-                                MGLCC_FrontBuffer, data->glFrontBuffer,
-                                MGLCC_BackBuffer, data->glBackBuffer,
-                                TAG_DONE);
+            return SDL_TRUE;
 
-                ((struct GLContextIFace *)data->glContext)->GLViewport(0, 0, width, height);
-
-                return SDL_TRUE;
-
-            } else {
-                dprintf("Failed to re-allocate MiniGL buffers\n");
-                //SDL_Quit();
-            }
         } else {
-            dprintf("Window data NULL\n");
+            dprintf("Failed to re-allocate MiniGL buffers\n");
+            //SDL_Quit();
         }
     } else {
         OS4_GL_LogLibraryError();

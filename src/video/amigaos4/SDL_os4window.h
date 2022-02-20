@@ -54,10 +54,10 @@ typedef struct
     struct Gadget   * gadget;
     struct Image    * image;
 
+    int               originalX, originalY, originalW, originalH;
 } SDL_WindowData;
 
 extern void OS4_GetWindowSize(_THIS, struct Window * window, int * width, int * height);
-extern void OS4_GetWindowActiveSize(SDL_Window * window, int * width, int * height);
 extern void OS4_WaitForResize(_THIS, SDL_Window * window, int * width, int * height);
 
 extern int OS4_CreateWindow(_THIS, SDL_Window * window);
@@ -80,7 +80,7 @@ extern void OS4_RestoreWindow(_THIS, SDL_Window * window);
 extern void OS4_SetWindowResizable(_THIS, SDL_Window * window, SDL_bool resizable);
 extern void OS4_SetWindowAlwaysOnTop(_THIS, SDL_Window * window, SDL_bool on_top);
 
-//extern void OS4_SetWindowBordered(_THIS, SDL_Window * window, SDL_bool bordered);
+extern void OS4_SetWindowBordered(_THIS, SDL_Window * window, SDL_bool bordered);
 extern void OS4_SetWindowFullscreen(_THIS, SDL_Window * window, SDL_VideoDisplay * display, SDL_bool fullscreen);
 //extern int OS4_SetWindowGammaRamp(_THIS, SDL_Window * window, const Uint16 * ramp);
 //extern int OS4_GetWindowGammaRamp(_THIS, SDL_Window * window, Uint16 * ramp);

@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2022 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -55,77 +55,77 @@ OS4_PixfToSdlPixelFormat(PIX_FMT from)
 int
 OS4_CreateWindowFramebuffer(_THIS, SDL_Window * window, Uint32 * format, void ** pixels, int * pitch)
 {
+    APTR lock;
+    APTR base_address;
+    uint32 bytes_per_row;
+    uint32 depth;
+    PIX_FMT pixf;
+
     SDL_WindowData *data = window->driverdata;
 
-    if (data) {
-        APTR lock;
-        APTR base_address;
-        uint32 bytes_per_row;
-        uint32 depth;
-        PIX_FMT pixf;
+    if (data->bitmap) {
+        dprintf("Freeing old bitmap %p\n", data->bitmap);
+        IGraphics->FreeBitMap(data->bitmap);
+    }
 
-        if (data->bitmap) {
-            dprintf("Freeing old bitmap %p\n", data->bitmap);
-            IGraphics->FreeBitMap(data->bitmap);
-        }
+    if (!data->syswin) {
+        dprintf("No system window\n");
+        return SDL_SetError("No system window");
+    }
 
-        if (!data->syswin) {
-            dprintf("No system window\n");
-            return SDL_SetError("No system window");
-        }
+    pixf = IGraphics->GetBitMapAttr(data->syswin->RPort->BitMap, BMA_PIXELFORMAT);
+    depth = IGraphics->GetBitMapAttr(data->syswin->RPort->BitMap, BMA_BITSPERPIXEL);
 
-        pixf = IGraphics->GetBitMapAttr(data->syswin->RPort->BitMap, BMA_PIXELFORMAT);
-        depth = IGraphics->GetBitMapAttr(data->syswin->RPort->BitMap, BMA_BITSPERPIXEL);
+    *format = OS4_PixfToSdlPixelFormat(pixf);
 
-        *format = OS4_PixfToSdlPixelFormat(pixf);
+    dprintf("Native format %d, SDL format %d (%s)\n", pixf, *format, SDL_GetPixelFormatName(*format));
+    dprintf("Allocating %d*%d*%d bitmap)\n", window->w, window->h, depth);
 
-        dprintf("Native format %d, SDL format %d (%s)\n", pixf, *format, SDL_GetPixelFormatName(*format));
-        dprintf("Allocating %d*%d*%d bitmap)\n", window->w, window->h, depth);
+    data->bitmap = IGraphics->AllocBitMapTags(
+        window->w,
+        window->h,
+        depth,
+        BMATags_Clear, TRUE,
+        BMATags_UserPrivate, TRUE,
+        //BMATags_Friend, data->syswin->RPort->BitMap,
+        BMATags_PixelFormat, pixf,
+        TAG_DONE);
 
-        data->bitmap = IGraphics->AllocBitMapTags(
-            window->w,
-            window->h,
-            depth,
-            BMATags_Clear, TRUE,
-            BMATags_UserPrivate, TRUE,
-            //BMATags_Friend, data->syswin->RPort->BitMap,
-            BMATags_PixelFormat, pixf,
-            TAG_DONE);
+    if (!data->bitmap) {
+        dprintf("Failed to allocate bitmap\n");
+        return SDL_SetError("Failed to allocate bitmap for framebuffer");
+    }
 
-        if (!data->bitmap) {
-            dprintf("Failed to allocate bitmap\n");
-            return SDL_SetError("Failed to allocate bitmap for framebuffer");
-        }
+    /* Lock the bitmap to get details. Since it's user private,
+    it should be safe to cache address and pitch. */
+    lock = IGraphics->LockBitMapTags(
+        data->bitmap,
+        LBM_BaseAddress, &base_address,
+        LBM_BytesPerRow, &bytes_per_row,
+        TAG_DONE);
 
-        /* Lock the bitmap to get details. Since it's user private,
-        it should be safe to cache address and pitch. */
-        lock = IGraphics->LockBitMapTags(
-            data->bitmap,
-            LBM_BaseAddress, &base_address,
-            LBM_BytesPerRow, &bytes_per_row,
-            TAG_DONE);
+    if (lock) {
+        *pixels = base_address;
+        *pitch = bytes_per_row;
 
-        if (lock) {
-            *pixels = base_address;
-            *pitch = bytes_per_row;
+        IGraphics->UnlockBitMap(lock);
+    } else {
+        dprintf("Failed to lock bitmap\n");
 
-            IGraphics->UnlockBitMap(lock);
-        } else {
-            dprintf("Failed to lock bitmap\n");
+        IGraphics->FreeBitMap(data->bitmap);
+        data->bitmap = NULL;
 
-            IGraphics->FreeBitMap(data->bitmap);
-            data->bitmap = NULL;
-
-            return SDL_SetError("Failed to lock framebuffer bitmap");
-        }
+        return SDL_SetError("Failed to lock framebuffer bitmap");
     }
 
     return 0;
 }
 
-#ifndef MIN
-#   define MIN(x,y) ((x)<(y)?(x):(y))
-#endif
+static int
+min(int a, int b)
+{
+    return (a < b) ? a : b;
+}
 
 int
 OS4_UpdateWindowFramebuffer(_THIS, SDL_Window * window, const SDL_Rect * rects, int numrects)
@@ -135,46 +135,43 @@ OS4_UpdateWindowFramebuffer(_THIS, SDL_Window * window, const SDL_Rect * rects, 
 
     //dprintf("Called\n");
 
-    if (data && data->bitmap) {
-        if (data->syswin) {
+    if (data->bitmap && data->syswin) {
+        int i;
 
-            int i;
+        struct Window *syswin = data->syswin;
 
-            struct Window *syswin = data->syswin;
+        const struct IBox windowBox = {
+            syswin->BorderLeft,
+            syswin->BorderTop,
+            syswin->Width - syswin->BorderLeft - syswin->BorderRight,
+            syswin->Height - syswin->BorderTop - syswin->BorderBottom };
 
-            const struct IBox windowBox = {
-                syswin->BorderLeft,
-                syswin->BorderTop,
-                syswin->Width - syswin->BorderLeft - syswin->BorderRight,
-                syswin->Height - syswin->BorderTop - syswin->BorderBottom };
+        //dprintf("blit box %d*%d\n", windowBox.Width, windowBox.Height);
 
-            //dprintf("blit box %d*%d\n", windowBox.Width, windowBox.Height);
+        ILayers->LockLayer(0, syswin->WLayer);
 
-            ILayers->LockLayer(0, syswin->WLayer);
+        for (i = 0; i < numrects; ++i) {
+            const SDL_Rect * r = &rects[i];
 
-            for (i = 0; i < numrects; ++i) {
-                const SDL_Rect * r = &rects[i];
+            ret = IGraphics->BltBitMapTags(
+                BLITA_Source, data->bitmap,
+                //BLITA_SrcType, BLITT_BITMAP,
+                BLITA_Dest, syswin->RPort,
+                BLITA_DestType, BLITT_RASTPORT,
+                BLITA_SrcX, r->x,
+                BLITA_SrcY, r->y,
+                BLITA_DestX, r->x + windowBox.Left,
+                BLITA_DestY, r->y + windowBox.Top,
+                BLITA_Width, min(r->w, windowBox.Width),
+                BLITA_Height, min(r->h, windowBox.Height),
+                TAG_DONE);
 
-                ret = IGraphics->BltBitMapTags(
-                    BLITA_Source, data->bitmap,
-                    //BLITA_SrcType, BLITT_BITMAP,
-                    BLITA_Dest, syswin->RPort,
-                    BLITA_DestType, BLITT_RASTPORT,
-                    BLITA_SrcX, r->x,
-                    BLITA_SrcY, r->y,
-                    BLITA_DestX, r->x + windowBox.Left,
-                    BLITA_DestY, r->y + windowBox.Top,
-                    BLITA_Width, MIN(r->w, windowBox.Width),
-                    BLITA_Height, MIN(r->h, windowBox.Height),
-                    TAG_DONE);
-
-                if (ret != -1) {
-                    dprintf("BltBitMapTags() returned %d\n", ret);
-                }
+            if (ret != -1) {
+                dprintf("BltBitMapTags() returned %d\n", ret);
             }
-
-            ILayers->UnlockLayer(syswin->WLayer);
         }
+
+        ILayers->UnlockLayer(syswin->WLayer);
     }
 
     if (ret != -1) {
@@ -189,8 +186,7 @@ OS4_DestroyWindowFramebuffer(_THIS, SDL_Window * window)
 {
     SDL_WindowData *data = window->driverdata;
 
-    if (data && data->bitmap) {
-
+    if (data->bitmap) {
         dprintf("Freeing bitmap %p\n", data->bitmap);
 
         IGraphics->FreeBitMap(data->bitmap);

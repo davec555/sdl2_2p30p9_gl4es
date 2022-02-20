@@ -415,7 +415,7 @@ OS4_SetFunctionPointers(SDL_VideoDevice * device)
     device->MinimizeWindow = OS4_MinimizeWindow;
     device->RestoreWindow = OS4_RestoreWindow;
 
-    //device->SetWindowBordered = OS4_SetWindowBordered; // Not supported by SetWindowAttrs()?
+    device->SetWindowBordered = OS4_SetWindowBordered;
     device->SetWindowResizable = OS4_SetWindowResizable;
     device->SetWindowAlwaysOnTop = OS4_SetWindowAlwaysOnTop;
 
@@ -536,6 +536,9 @@ OS4_VideoInit(_THIS)
 
     // We don't want SDL to change  window setup in SDL_OnWindowFocusLost()
     SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "0");
+
+    // Poll sentinels added after SDL 2.0.14 cause increasing CPU load (TODO: fix)
+    SDL_SetHint(SDL_HINT_POLL_SENTINEL, "0");
 
     return 0;
 }

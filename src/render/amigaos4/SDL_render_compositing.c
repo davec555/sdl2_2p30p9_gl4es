@@ -474,6 +474,8 @@ OS4_RenderCopyEx(SDL_Renderer * renderer, SDL_RenderCommand * cmd, const OS4_Ver
 
     OS4_SetupCompositing(renderer->target, &params, texture->scaleMode, mode, cmd->data.draw.a);
 
+    //dprintf("clip %d, %d, %d, %d\n", data->cliprect.x, data->cliprect.y, data->cliprect.w, data->cliprect.h);
+
     ret_code = data->iGraphics->CompositeTags(
         OS4_ConvertBlendMode(mode),
         src,
@@ -791,7 +793,7 @@ OS4_QueueCopyEx(SDL_Renderer * renderer, SDL_RenderCommand *cmd, SDL_Texture * t
     if (!verts) {
         return -1;
     }
-
+    //dprintf("SRC %d, %d, %d, %d, DST %f, %f, %f, %f\n", srcrect->x, srcrect->y, srcrect->w, srcrect->h, dstrect->x, dstrect->y, dstrect->w, dstrect->h);
     cmd->data.draw.count = 1;
 
     if (renderer->viewport.x || renderer->viewport.y) {
@@ -871,8 +873,15 @@ static int OS4_QueueGeometry(SDL_Renderer *renderer, SDL_RenderCommand *cmd, SDL
 
         xy_ = (float *)((char*)xy + j * xy_stride);
 
-        verts->x = xy_[0] * scale_x;
-        verts->y = xy_[1] * scale_y;
+        if (renderer->viewport.x || renderer->viewport.y) {
+            const int x = renderer->viewport.x;
+            const int y = renderer->viewport.y;
+            verts->x = xy_[0] * scale_x + x;
+            verts->y = xy_[1] * scale_y + y;
+        } else {
+            verts->x = xy_[0] * scale_x;
+            verts->y = xy_[1] * scale_y;
+        }
 
         float *uv_ = (float *)((char*)uv + j * uv_stride);
         verts->s = uv_[0] * texture->w;
@@ -882,6 +891,23 @@ static int OS4_QueueGeometry(SDL_Renderer *renderer, SDL_RenderCommand *cmd, SDL
     }
 
     return 0;
+}
+
+static void
+OS4_ResetClipRect(SDL_Renderer * renderer, struct BitMap * bitmap)
+{
+    // CompositeTags uses cliprect: with clipping disabled, maximize it
+
+    OS4_RenderData *data = (OS4_RenderData *)renderer->driverdata;
+
+    int width, height;
+
+    OS4_GetBitMapSize(renderer, bitmap, &width, &height);
+
+    data->cliprect.x = 0;
+    data->cliprect.y = 0;
+    data->cliprect.w = width;
+    data->cliprect.h = height;
 }
 
 static int
@@ -910,8 +936,7 @@ OS4_RunCommandQueue(SDL_Renderer * renderer, SDL_RenderCommand * cmd, void * ver
                     //dprintf("viewport %d, %d\n", viewport->w, viewport->h);
 
                     if (!data->cliprect_enabled) {
-                        // CompositeTags uses cliprect: with clipping disabled, maximize it
-                        SDL_memcpy(&data->cliprect, viewport, sizeof(SDL_Rect));
+                        OS4_ResetClipRect(renderer, bitmap);
                     }
                 }
                 break;
@@ -932,8 +957,7 @@ OS4_RunCommandQueue(SDL_Renderer * renderer, SDL_RenderCommand * cmd, void * ver
                 }
 
                 if (!data->cliprect_enabled) {
-                    // CompositeTags uses cliprect: with clipping disabled, maximize it
-                    SDL_memcpy(&data->cliprect, &data->viewport, sizeof(SDL_Rect));
+                    OS4_ResetClipRect(renderer, bitmap);
                 }
                 break;
             }

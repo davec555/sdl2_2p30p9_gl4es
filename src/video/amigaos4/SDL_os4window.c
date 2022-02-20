@@ -45,6 +45,8 @@
 #define DEBUG
 #include "../../main/amigaos4/SDL_os4debug.h"
 
+#define MIN_WINDOW_SIZE 100
+
 extern SDL_bool (*OS4_ResizeGlContext)(_THIS, SDL_Window * window);
 extern void (*OS4_UpdateGlWindowPointer)(_THIS, SDL_Window * window);
 
@@ -66,39 +68,24 @@ OS4_GetWindowSize(_THIS, struct Window * window, int * width, int * height)
 }
 
 void
-OS4_GetWindowActiveSize(SDL_Window * window, int * width, int * height)
-{
-    if (window->flags & SDL_WINDOW_MAXIMIZED) {
-        *width = window->max_w;
-        *height = window->max_h;
-    } else {
-        *width = window->w;
-        *height = window->h;
-    }
-}
-
-void
 OS4_WaitForResize(_THIS, SDL_Window * window, int * width, int * height)
 {
     SDL_WindowData * data = window->driverdata;
 
     int counter = 0;
-    int activeWidth, activeHeight;
     int w = 0;
     int h = 0;
-
-    OS4_GetWindowActiveSize(window, &activeWidth, &activeHeight);
 
     while (counter++ < 100) {
         OS4_GetWindowSize(_this, data->syswin, &w, &h);
 
-        if (w == activeWidth && h == activeHeight) {
+        if (w == window->w && h == window->h) {
             break;
         }
 
         dprintf("Waiting for Intuition %d\n", counter);
         dprintf("System window size (%d * %d), SDL window size (%d * %d)\n",
-            w, h, activeWidth, activeHeight);
+            w, h, window->w, window->h);
         usleep(1000);
     }
 
@@ -143,11 +130,29 @@ OS4_RemoveAppIcon(_THIS, SDL_WindowData *data)
     }
 }
 
+static void
+OS4_CreateAppWindow(_THIS, SDL_Window * window)
+{
+    SDL_VideoData *videodata = (SDL_VideoData *) _this->driverdata;
+    SDL_WindowData *data = window->driverdata;
+
+    if (data->appWin) {
+        dprintf("AppWindow already exists for window '%s'\n", window->title);
+        return;
+    }
+
+    // Pass SDL window as user data
+    data->appWin = IWorkbench->AddAppWindow(0, (ULONG)window, data->syswin,
+        videodata->appMsgPort, TAG_DONE);
+
+    if (!data->appWin) {
+        dprintf("Couldn't create AppWindow\n");
+    }
+}
+
 static int
 OS4_SetupWindowData(_THIS, SDL_Window * sdlwin, struct Window * syswin)
 {
-    SDL_VideoData *videodata = (SDL_VideoData *) _this->driverdata;
-
     SDL_WindowData *data;
 
     if (sdlwin->driverdata) {
@@ -179,15 +184,6 @@ OS4_SetupWindowData(_THIS, SDL_Window * sdlwin, struct Window * syswin)
         sdlwin->h = height;
     }
 
-    // Pass SDL window as user data
-    data->appWin = IWorkbench->AddAppWindow(0, (ULONG)sdlwin, syswin,
-        videodata->appMsgPort, TAG_DONE);
-
-    if (!data->appWin) {
-        dprintf("Couldn't create AppWindow\n");
-        // It's sad but don't fail because of this
-    }
-
     return 0;
 }
 
@@ -203,7 +199,7 @@ OS4_GetIDCMPFlags(SDL_Window * window, SDL_bool fullscreen)
 
     if (!fullscreen) {
         if (!(window->flags & SDL_WINDOW_BORDERLESS)) {
-            IDCMPFlags  |= IDCMP_CLOSEWINDOW | IDCMP_GADGETUP | IDCMP_CHANGEWINDOW;
+            IDCMPFlags |= IDCMP_CLOSEWINDOW | IDCMP_GADGETUP | IDCMP_CHANGEWINDOW;
         }
 
         if (window->flags & SDL_WINDOW_RESIZABLE) {
@@ -286,14 +282,14 @@ OS4_CenterWindow(struct Screen * screen, SDL_Window * window)
     if (SDL_WINDOWPOS_ISCENTERED(window->windowed.x) ||
         SDL_WINDOWPOS_ISUNDEFINED(window->windowed.x)) {
 
-        window->windowed.x = (screen->Width - window->windowed.w) / 2;
+        window->x = window->windowed.x = (screen->Width - window->windowed.w) / 2;
         dprintf("X centered\n");
     }
 
     if (SDL_WINDOWPOS_ISCENTERED(window->windowed.y) ||
         SDL_WINDOWPOS_ISUNDEFINED(window->windowed.y)) {
 
-        window->windowed.y = (screen->Height - window->windowed.h) / 2;
+        window->y = window->windowed.y = (screen->Height - window->windowed.h) / 2;
         dprintf("Y centered\n");
     }
 }
@@ -302,10 +298,10 @@ static void
 OS4_DefineWindowBox(SDL_Window * window, struct Screen * screen, SDL_bool fullscreen, SDL_Rect * box)
 {
     if (fullscreen && screen) {
-        box->x = 0; // window->x;
-        box->y = 0; // window->y;
-        box->w = screen->Width; // window->w;
-        box->h = screen->Height; // window->h;
+        box->x = 0;
+        box->y = 0;
+        box->w = screen->Width;
+        box->h = screen->Height;
     } else {
         OS4_CenterWindow(screen, window);
 
@@ -378,6 +374,36 @@ OS4_CreateIconifyGadgetForWindow(_THIS, SDL_Window * window)
     }
 }
 
+static int max(int a, int b)
+{
+    return (a > b) ? a : b;
+}
+
+static void
+OS4_SetWindowLimits(_THIS, SDL_Window * window, struct Window * syswin)
+{
+    const int borderWidth = syswin->BorderLeft + syswin->BorderRight;
+    const int borderHeight = syswin->BorderTop + syswin->BorderBottom;
+
+    const int minW = borderWidth + (window->min_w ? max(MIN_WINDOW_SIZE, window->min_w) : MIN_WINDOW_SIZE);
+    const int minH = borderHeight + (window->min_h ? max(MIN_WINDOW_SIZE, window->min_h) : MIN_WINDOW_SIZE);
+
+    const int maxW = window->max_w ? (borderWidth + window->max_w) : -1;
+    const int maxH = window->max_h ? (borderHeight + window->max_h) : -1;
+
+    dprintf("SDL_Window limits: min_w %d, min_h %d, max_w %d, max_h %d (0 means default)\n",
+            window->min_w, window->min_h, window->max_w, window->max_h);
+
+    dprintf("System window limits (with borders): minW %d, minH %d, maxW %d, maxH %d (-1 means no limit)\n",
+            minW, minH, maxW, maxH);
+
+    BOOL ret = IIntuition->WindowLimits(syswin, minW, minH, maxW, maxH);
+
+    if (!ret) {
+        dprintf("Setting window limits failed\n");
+    }
+}
+
 static struct Window *
 OS4_CreateSystemWindow(_THIS, SDL_Window * window, SDL_VideoDisplay * display)
 {
@@ -404,7 +430,7 @@ OS4_CreateSystemWindow(_THIS, SDL_Window * window, SDL_VideoDisplay * display)
     syswin = IIntuition->OpenWindowTags(
         NULL,
         WA_PubScreen, screen,
-        WA_Title, fullscreen ? NULL : window->title,
+        WA_Title, (fullscreen || (window->flags & SDL_WINDOW_BORDERLESS)) ? NULL : window->title,
         WA_ScreenTitle, window->title,
         WA_Left, box.x,
         WA_Top, box.y,
@@ -425,19 +451,10 @@ OS4_CreateSystemWindow(_THIS, SDL_Window * window, SDL_VideoDisplay * display)
         return NULL;
     }
 
-    if (window->flags & SDL_WINDOW_RESIZABLE) {
-
+    if (window->flags & SDL_WINDOW_RESIZABLE && !fullscreen) {
         // If this window is resizable, reset window size limits
         // so that the user can actually resize it.
-        BOOL ret = IIntuition->WindowLimits(syswin,
-            syswin->BorderLeft + syswin->BorderRight + 100,
-            syswin->BorderTop + syswin->BorderBottom + 100,
-            -1,
-            -1);
-
-        if (!ret) {
-            dprintf("Failed to set window limits\n");
-        }
+        OS4_SetWindowLimits(_this, window, syswin);
     }
 
     return syswin;
@@ -459,7 +476,6 @@ OS4_CreateWindow(_THIS, SDL_Window * window)
     }
 
     if (OS4_SetupWindowData(_this, window, syswin) < 0) {
-
         // There is no AppWindow in this scenario
         OS4_CloseSystemWindow(_this, syswin);
 
@@ -467,6 +483,7 @@ OS4_CreateWindow(_THIS, SDL_Window * window)
     }
 
     OS4_CreateIconifyGadgetForWindow(_this, window);
+    OS4_CreateAppWindow(_this, window);
 
     return 0;
 }
@@ -498,7 +515,7 @@ OS4_SetWindowTitle(_THIS, SDL_Window * window)
 
     //dprintf("Called\n");
 
-    if (data && data->syswin) {
+    if (data->syswin) {
         STRPTR title = window->title ? window->title : "";
 
         IIntuition->SetWindowTitles(data->syswin, title, title);
@@ -510,17 +527,12 @@ OS4_SetWindowBox(_THIS, SDL_Window * window)
 {
     SDL_WindowData *data = window->driverdata;
 
-    if (data && data->syswin) {
-        int width, height;
-        LONG ret;
-
-        OS4_GetWindowActiveSize(window, &width, &height);
-
-        ret = IIntuition->SetWindowAttrs(data->syswin,
+    if (data->syswin) {
+        LONG ret = IIntuition->SetWindowAttrs(data->syswin,
             WA_Left, window->x,
             WA_Top, window->y,
-            WA_InnerWidth, width,
-            WA_InnerHeight, height,
+            WA_InnerWidth, window->w,
+            WA_InnerHeight, window->h,
             TAG_DONE);
 
         if (ret) {
@@ -540,52 +552,9 @@ OS4_SetWindowBox(_THIS, SDL_Window * window)
 void
 OS4_SetWindowPosition(_THIS, SDL_Window * window)
 {
-    SDL_WindowData *data = window->driverdata;
-
     dprintf("New window position %d, %d\n", window->x, window->y);
 
-    if (data && data->syswin) {
-
-        LONG ret = IIntuition->SetWindowAttrs(data->syswin,
-            WA_Left, window->x,
-            WA_Top, window->y,
-            TAG_DONE);
-
-        if (ret) {
-            dprintf("SetWindowAttrs() returned %d\n", ret);
-        }
-    }
-}
-
-static void
-OS4_ResizeWindow(_THIS, SDL_Window * window, int width, int height)
-{
-    if (width > 0 && height > 0) {
-        SDL_WindowData *data = window->driverdata;
-
-        if (data) {
-            LONG ret = IIntuition->SetWindowAttrs(data->syswin,
-                WA_InnerWidth, width,
-                WA_InnerHeight, height,
-                TAG_DONE);
-
-            if (ret) {
-                dprintf("SetWindowAttrs() returned %d\n", ret);
-            }
-
-            OS4_WaitForResize(_this, window, NULL, NULL);
-
-            if (SDL_IsShapedWindow(window)) {
-                OS4_ResizeWindowShape(window);
-            }
-
-            if (data->glContext) {
-                OS4_ResizeGlContext(_this, window);
-            }
-        }
-    } else {
-        dprintf("Invalid width %d or height %d\n", width, height);
-    }
+    OS4_SetWindowBox(_this, window);
 }
 
 void
@@ -593,18 +562,16 @@ OS4_SetWindowSize(_THIS, SDL_Window * window)
 {
     SDL_WindowData *data = window->driverdata;
 
-    if (data && data->syswin) {
-
+    if (data->syswin) {
         int width = 0;
         int height = 0;
 
         OS4_GetWindowSize(_this, data->syswin, &width, &height);
 
         if (width != window->w || height != window->h) {
-
             dprintf("New window size %d*%d\n", window->w, window->h);
 
-            OS4_ResizeWindow(_this, window, window->w, window->h);
+            OS4_SetWindowBox(_this, window);
         } else {
             dprintf("Ignored size request %d*%d\n", width, height);
         }
@@ -616,8 +583,12 @@ OS4_ShowWindow(_THIS, SDL_Window * window)
 {
     SDL_WindowData *data = window->driverdata;
 
-    if (data && data->syswin) {
+    if (data->appIcon) {
+        dprintf("Window '%s' is in iconified (minimized) stated, ignoring show request\n", window->title);
+        return;
+    }
 
+    if (data->syswin) {
         LONG ret;
 
         dprintf("Showing window '%s'\n", window->title);
@@ -656,7 +627,7 @@ OS4_HideWindow(_THIS, SDL_Window * window)
         return;
     }
 
-    if (data && data->syswin) {
+    if (data->syswin) {
         BOOL result;
 
         dprintf("Hiding window '%s'\n", window->title);
@@ -675,7 +646,7 @@ OS4_RaiseWindow(_THIS, SDL_Window * window)
 {
     SDL_WindowData *data = window->driverdata;
 
-    if (data && data->syswin) {
+    if (data->syswin) {
         dprintf("Raising window '%s'\n", window->title);
 
         IIntuition->WindowToFront(data->syswin);
@@ -704,27 +675,24 @@ OS4_CloseWindow(_THIS, SDL_Window * sdlwin)
 {
     SDL_WindowData *data = sdlwin->driverdata;
 
-    if (data) {
-        OS4_RemoveAppWindow(_this, data);
-        OS4_RemoveAppIcon(_this, data);
+    OS4_RemoveAppWindow(_this, data);
+    OS4_RemoveAppIcon(_this, data);
 
-        if (data->syswin) {
+    if (data->syswin) {
+        OS4_CloseSystemWindow(_this, data->syswin);
+        data->syswin = NULL;
 
-            OS4_CloseSystemWindow(_this, data->syswin);
-            data->syswin = NULL;
+        if (data->gadget) {
+            dprintf("Disposing gadget %p\n", data->gadget);
+            //IIntuition->RemoveGadget(data->syswin, data->gadget);
+            IIntuition->DisposeObject((Object *)data->gadget);
+            data->gadget = NULL;
+        }
 
-            if (data->gadget) {
-                dprintf("Disposing gadget %p\n", data->gadget);
-                //IIntuition->RemoveGadget(data->syswin, data->gadget);
-                IIntuition->DisposeObject((Object *)data->gadget);
-                data->gadget = NULL;
-            }
-
-            if (data->image) {
-                dprintf("Disposing gadget image %p\n", data->image);
-                IIntuition->DisposeObject((Object *)data->image);
-                data->image = NULL;
-            }
+        if (data->image) {
+            dprintf("Disposing gadget image %p\n", data->image);
+            IIntuition->DisposeObject((Object *)data->image);
+            data->image = NULL;
         }
     } else {
         dprintf("NULL pointer\n");
@@ -776,8 +744,8 @@ OS4_SetWindowFullscreen(_THIS, SDL_Window * window, SDL_VideoDisplay * display, 
             data->syswin = OS4_CreateSystemWindow(_this, window, fullscreen ? display : NULL);
 
             if (data->syswin) {
-
                 OS4_CreateIconifyGadgetForWindow(_this, window);
+                OS4_CreateAppWindow(_this, window);
 
                 // Make sure the new window is active
                 OS4_ShowWindow(_this, window);
@@ -850,10 +818,8 @@ OS4_SetWindowMouseGrab(_THIS, SDL_Window * window, SDL_bool grabbed)
 {
     SDL_WindowData *data = window->driverdata;
 
-    if (data) {
-        OS4_SetWindowGrabPrivate(_this, data->syswin, grabbed);
-        data->pointerGrabTicks = 0;
-    }
+    OS4_SetWindowGrabPrivate(_this, data->syswin, grabbed);
+    data->pointerGrabTicks = 0;
 }
 
 void
@@ -863,29 +829,25 @@ OS4_DestroyWindow(_THIS, SDL_Window * window)
 
     dprintf("Called for '%s' (flags 0x%X)\n", window->title, window->flags);
 
-    if (data) {
+    if (data->syswin) {
+        if (!(window->flags & SDL_WINDOW_FOREIGN)) {
 
-        if (data->syswin) {
-
-            if (!(window->flags & SDL_WINDOW_FOREIGN)) {
-
-                if (SDL_IsShapedWindow(window)) {
-                    OS4_DestroyShape(_this, window);
-                }
-
-                OS4_CloseWindow(_this, window);
-            } else {
-                dprintf("Ignored for native window\n");
+            if (SDL_IsShapedWindow(window)) {
+                OS4_DestroyShape(_this, window);
             }
-        }
 
-        if (window->flags & SDL_WINDOW_OPENGL) {
-            OS4_GL_FreeBuffers(_this, data);
+            OS4_CloseWindow(_this, window);
+        } else {
+            dprintf("Ignored for native window\n");
         }
-
-        SDL_free(data);
-        window->driverdata = NULL;
     }
+
+    if (window->flags & SDL_WINDOW_OPENGL) {
+        OS4_GL_FreeBuffers(_this, data);
+    }
+
+    SDL_free(data);
+    window->driverdata = NULL;
 }
 
 SDL_bool
@@ -972,42 +934,31 @@ OS4_GetWindowBordersSize(_THIS, SDL_Window * window, int * top, int * left, int 
 void
 OS4_SetWindowMinMaxSize(_THIS, SDL_Window * window)
 {
-    if (window->driverdata) {
+    if (window->flags & SDL_WINDOW_RESIZABLE) {
+       SDL_WindowData *data = window->driverdata;
 
-        dprintf("Window min size %d*%d, max size %d*%d\n",
-            window->min_w, window->min_h,
-            window->max_w, window->max_h);
-
-        if (window->flags & SDL_WINDOW_RESIZABLE) {
-
-            SDL_WindowData *data = window->driverdata;
-
-            if (data->syswin) {
-                struct Window *syswin = data->syswin;
-
-                int width = syswin->BorderLeft + syswin->BorderRight;
-                int height = syswin->BorderTop + syswin->BorderBottom;
-
-                BOOL ret =IIntuition->WindowLimits(data->syswin,
-                    window->min_w + width, window->min_h + height,
-                    window->max_w + width, window->max_h + height);
-
-                if (!ret) {
-                    dprintf("Setting window limits failed\n");
-                }
-            } else {
-                dprintf("NULL window\n");
-            }
-        } else {
-            dprintf("Window is not resizable\n");
-        }
+        OS4_SetWindowLimits(_this, window, data->syswin);
+    } else {
+        dprintf("Window is not resizable\n");
     }
 }
 
 void
 OS4_MaximizeWindow(_THIS, SDL_Window * window)
 {
-    dprintf("Maximizing '%s' to %d*%d\n", window->title, window->max_w, window->max_h);
+    SDL_WindowData *data = window->driverdata;
+
+    struct Window* syswin = data->syswin;
+    struct Screen* screen = syswin->WScreen;
+
+    const int borderWidth = syswin->BorderLeft + syswin->BorderRight;
+    const int borderHeight = syswin->BorderTop + syswin->BorderBottom;
+
+    // If there are no user-given limits, use screen dimensions
+    const int width = window->max_w ? window->max_w : (screen->Width - borderWidth);
+    const int height = window->max_h ? window->max_h : (screen->Height - borderHeight);
+
+    dprintf("Maximizing '%s' to %d*%d\n", window->title, width, height);
 
     if (window->flags & SDL_WINDOW_MINIMIZED) {
         OS4_UniconifyWindow(_this, window);
@@ -1017,7 +968,22 @@ OS4_MaximizeWindow(_THIS, SDL_Window * window)
     // context can be resized accordingly...
     window->flags |= SDL_WINDOW_MAXIMIZED;
 
-    OS4_ResizeWindow(_this, window, window->max_w, window->max_h);
+    dprintf("Remember original window x %d, y %d, w %d, h %d\n",
+        window->x, window->y, window->w, window->h);
+
+    // Remember old values for restoring
+    data->originalX = window->x;
+    data->originalY = window->y;
+    data->originalW = window->w;
+    data->originalH = window->h;
+
+    // Center maximized window
+    window->x = (screen->Width - width - borderWidth) / 2;
+    window->y = (screen->Height - height - borderHeight) / 2;
+    window->w = width;
+    window->h = height;
+
+    OS4_SetWindowBox(_this, window);
 
     // ...then remove the flag so that user event can be triggered
     window->flags &= ~SDL_WINDOW_MAXIMIZED;
@@ -1036,12 +1002,21 @@ OS4_MinimizeWindow(_THIS, SDL_Window * window)
 void
 OS4_RestoreWindow(_THIS, SDL_Window * window)
 {
-    dprintf("Restoring '%s' to %d*%d\n", window->title, window->w, window->h);
-
     if (window->flags & SDL_WINDOW_MINIMIZED) {
+        dprintf("Restoring iconified '%s'\n", window->title);
         OS4_UniconifyWindow(_this, window);
     } else if (window->flags & SDL_WINDOW_MAXIMIZED) {
-        OS4_ResizeWindow(_this, window, window->w, window->h);
+        SDL_WindowData *data = window->driverdata;
+
+        window->x = data->originalX;
+        window->y = data->originalY;
+        window->w = data->originalW;
+        window->h = data->originalH;
+
+        dprintf("Restoring '%s' to x %d, y %d, w %d, h %d\n", window->title,
+            window->x, window->y, window->w, window->h);
+
+        OS4_SetWindowBox(_this, window);
 
         SDL_SendWindowEvent(window, SDL_WINDOWEVENT_RESTORED, 0, 0);
     } else {
@@ -1074,43 +1049,41 @@ OS4_GetDiskObject(_THIS)
 void
 OS4_IconifyWindow(_THIS, SDL_Window * window)
 {
-    if (window && window->driverdata) {
-        SDL_VideoData *videodata = (SDL_VideoData *) _this->driverdata;
+    SDL_VideoData *videodata = (SDL_VideoData *) _this->driverdata;
 
-        SDL_WindowData *data = window->driverdata;
+    SDL_WindowData *data = window->driverdata;
 
-        if (window->flags & SDL_WINDOW_MINIMIZED) {
-            dprintf("Window '%s' is already iconified\n", window->title);
-        } else {
-            struct DiskObject *diskObject = OS4_GetDiskObject(_this);
+    if (window->flags & SDL_WINDOW_MINIMIZED) {
+        dprintf("Window '%s' is already iconified\n", window->title);
+    } else {
+        struct DiskObject *diskObject = OS4_GetDiskObject(_this);
 
-            if (diskObject) {
-                diskObject->do_CurrentX = NO_ICON_POSITION;
-                diskObject->do_CurrentY = NO_ICON_POSITION;
+        if (diskObject) {
+            diskObject->do_CurrentX = NO_ICON_POSITION;
+            diskObject->do_CurrentY = NO_ICON_POSITION;
 
-                data->appIcon = IWorkbench->AddAppIcon(
-                    0,
-                    (ULONG)window,
-                    videodata->appName,
-                    videodata->appMsgPort,
-                    0,
-                    diskObject,
-                    TAG_DONE);
+            data->appIcon = IWorkbench->AddAppIcon(
+                0,
+                (ULONG)window,
+                videodata->appName,
+                videodata->appMsgPort,
+                0,
+                diskObject,
+                TAG_DONE);
 
-                if (!data->appIcon) {
-                    dprintf("Failed to add AppIcon\n");
-                } else {
-                    dprintf("Iconifying '%s'\n", window->title);
-
-                    OS4_HideWindow(_this, window);
-
-                    SDL_SendWindowEvent(window, SDL_WINDOWEVENT_MINIMIZED, 0, 0);
-                }
-
-                IIcon->FreeDiskObject(diskObject);
+            if (!data->appIcon) {
+                dprintf("Failed to add AppIcon\n");
             } else {
-                dprintf("Failed to load icon\n");
+                dprintf("Iconifying '%s'\n", window->title);
+
+                OS4_HideWindow(_this, window);
+
+                SDL_SendWindowEvent(window, SDL_WINDOWEVENT_MINIMIZED, 0, 0);
             }
+
+            IIcon->FreeDiskObject(diskObject);
+        } else {
+            dprintf("Failed to load icon\n");
         }
     }
 }
@@ -1118,22 +1091,22 @@ OS4_IconifyWindow(_THIS, SDL_Window * window)
 void
 OS4_UniconifyWindow(_THIS, SDL_Window * window)
 {
-    if (window && window->driverdata) {
-        if (window->flags & SDL_WINDOW_MINIMIZED) {
-            dprintf("Restoring '%s'\n", window->title);
+    SDL_WindowData *data = window->driverdata;
 
-            OS4_RemoveAppIcon(_this, window->driverdata);
-            OS4_ShowWindow(_this, window);
+    if (data->appIcon) {
+        dprintf("Restoring '%s'\n", window->title);
 
-            SDL_SendWindowEvent(window, SDL_WINDOWEVENT_RESTORED, 0, 0);
-        } else {
-            dprintf("Window '%s' isn't in iconified state\n", window->title);
-        }
+        OS4_RemoveAppIcon(_this, data);
+        OS4_ShowWindow(_this, window);
+
+        SDL_SendWindowEvent(window, SDL_WINDOWEVENT_RESTORED, 0, 0);
+    } else {
+        dprintf("Window '%s' isn't in iconified (minimized) state\n", window->title);
     }
 }
 
-void
-OS4_SetWindowResizable (_THIS, SDL_Window * window, SDL_bool resizable)
+static void
+OS4_RecreateWindow(_THIS, SDL_Window * window)
 {
     if (window->flags & SDL_WINDOW_FOREIGN) {
         dprintf("Cannot modify native window '%s'\n", window->title);
@@ -1151,6 +1124,7 @@ OS4_SetWindowResizable (_THIS, SDL_Window * window, SDL_bool resizable)
 
     if (data->syswin) {
         OS4_CreateIconifyGadgetForWindow(_this, window);
+        OS4_CreateAppWindow(_this, window);
 
         // Make sure the new window is active
         OS4_ShowWindow(_this, window);
@@ -1161,6 +1135,18 @@ OS4_SetWindowResizable (_THIS, SDL_Window * window, SDL_bool resizable)
     } else {
         dprintf("Failed to re-create window '%s'\n", window->title);
     }
+}
+
+void
+OS4_SetWindowResizable (_THIS, SDL_Window * window, SDL_bool resizable)
+{
+    OS4_RecreateWindow(_this, window);
+}
+
+void
+OS4_SetWindowBordered(_THIS, SDL_Window * window, SDL_bool bordered)
+{
+    OS4_RecreateWindow(_this, window);
 }
 
 void

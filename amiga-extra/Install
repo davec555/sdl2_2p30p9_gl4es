@@ -4,6 +4,9 @@ echo Copying shared object ...
 copy SDK/local/newlib/lib/libSDL2-2.0.so SObjs:
 copy SDK/local/newlib/lib/libSDL2-2.0_debug.so SObjs:
 
+echo Copying prefs program ...
+copy SDL2 SDL2.info SYS:Prefs/
+
 set option `RequestChoice "One more question..." "Would you like to install the SDK?" "Yes, please" "No, thanks"`
 
 If $option eq 1

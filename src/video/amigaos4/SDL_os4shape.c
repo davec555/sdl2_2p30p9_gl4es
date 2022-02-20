@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2022 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -298,23 +298,18 @@ int
 OS4_ResizeWindowShape(SDL_Window * window)
 {
     if (window->shaper) {
-
         SDL_ShapeData *data = window->shaper->driverdata;
 
         if (data) {
-            int width, height;
-
-            OS4_GetWindowActiveSize(window, &width, &height);
-
             dprintf("Called for '%s'\n", window->title);
 
-            if (data->width != width ||
-                data->height != height || data->bitmap == NULL) {
+            if (data->width != window->w ||
+                data->height != window->h || data->bitmap == NULL) {
 
-                Uint32 bitmapsize = width * height;
+                Uint32 bitmapsize = window->w * window->h;
 
-                data->width = width;
-                data->height = height;
+                data->width = window->w;
+                data->height = window->h;
 
                 if (data->bitmap) {
                     SDL_free(data->bitmap);
