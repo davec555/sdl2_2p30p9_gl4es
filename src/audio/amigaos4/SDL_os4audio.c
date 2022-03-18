@@ -201,12 +201,12 @@ OS4_CloseDevice(_THIS)
 }
 
 static int
-OS4_OpenDevice(_THIS, void * handle, const char * devname, int iscapture)
+OS4_OpenDevice(_THIS, const char * devname)
 {
     int result = 0;
     OS4AudioData *os4data = NULL;
 
-    dprintf("handle %p, devname %s, iscapture %d\n", handle, devname, iscapture);
+    dprintf("devname %s\n", devname);
 
     _this->hidden = (OS4AudioData *) SDL_malloc(sizeof(OS4AudioData));
 
@@ -438,12 +438,12 @@ OS4_CaptureFromDevice(_THIS, void * buffer, int buflen)
 /* ------------------------------------------ */
 /* Audio driver init functions implementation */
 /* ------------------------------------------ */
-static int
+static SDL_bool
 OS4_Init(SDL_AudioDriverImpl * impl)
 {
     if (!OS4_AudioAvailable()) {
         SDL_SetError("Failed to open AHI device");
-        return 0;
+        return SDL_FALSE;
     }
 
     // impl->DetectDevices?
@@ -465,7 +465,7 @@ OS4_Init(SDL_AudioDriverImpl * impl)
     impl->OnlyHasDefaultOutputDevice = 1;
     impl->OnlyHasDefaultCaptureDevice = 1;
 
-    return 1;
+    return SDL_TRUE;
 }
 
 AudioBootStrap AMIGAOS4AUDIO_bootstrap = {

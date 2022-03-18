@@ -293,8 +293,19 @@ OS4_RotateVertices(OS4_Vertex vertices[4], const double angle, const SDL_FPoint 
 }
 
 static void
+OS4_ScaleVertices(OS4_Vertex vertices[4], const float scale_x, const float scale_y)
+{
+     int i;
+
+     for (i = 0; i < 4; i++) {
+         vertices[i].x *= scale_x;
+         vertices[i].y *= scale_y;
+     }
+}
+
+static void
 OS4_FillVertexData(OS4_Vertex vertices[4], const SDL_Rect * srcrect, const SDL_Rect * dstrect,
-    const double angle, const SDL_FPoint * center, const SDL_RendererFlip flip)
+    const double angle, const SDL_FPoint * center, const SDL_RendererFlip flip, float scale_x, float scale_y)
 {
     /* Flip texture coordinates if needed */
 
@@ -353,6 +364,10 @@ OS4_FillVertexData(OS4_Vertex vertices[4], const SDL_Rect * srcrect, const SDL_R
 
     if (angle != 0.0) {
         OS4_RotateVertices(vertices, angle, center);
+    }
+
+    if (scale_x != 1.0f || scale_y != 1.0f) {
+        OS4_ScaleVertices(vertices, scale_x, scale_y);
     }
 }
 
@@ -418,7 +433,7 @@ OS4_RenderFillRects(SDL_Renderer * renderer, const SDL_Rect * points, int count,
 
             uint32 ret_code;
 
-            OS4_FillVertexData(vertices, &srcrect, &points[i], 0.0, NULL, SDL_FLIP_NONE);
+            OS4_FillVertexData(vertices, &srcrect, &points[i], 0.0, NULL, SDL_FLIP_NONE, 1.0f, 1.0f);
 
             ret_code = data->iGraphics->CompositeTags(
                 OS4_ConvertBlendMode(mode),
@@ -782,7 +797,7 @@ OS4_QueueFillRects(SDL_Renderer * renderer, SDL_RenderCommand *cmd, const SDL_FR
 static int
 OS4_QueueCopyEx(SDL_Renderer * renderer, SDL_RenderCommand *cmd, SDL_Texture * texture,
                const SDL_Rect * srcrect, const SDL_FRect * dstrect,
-               const double angle, const SDL_FPoint *center, const SDL_RendererFlip flip)
+               const double angle, const SDL_FPoint *center, const SDL_RendererFlip flip, float scale_x, float scale_y)
 {
     SDL_Rect final_rect;
     SDL_FPoint final_center;
@@ -810,7 +825,7 @@ OS4_QueueCopyEx(SDL_Renderer * renderer, SDL_RenderCommand *cmd, SDL_Texture * t
     final_center.x = dstrect->x + center->x;
     final_center.y = dstrect->y + center->y;
 
-    OS4_FillVertexData(verts, srcrect, &final_rect, angle, &final_center, flip);
+    OS4_FillVertexData(verts, srcrect, &final_rect, angle, &final_center, flip, scale_x, scale_y);
 
     return OS4_SetTextureColorMod(renderer, texture);
 }
@@ -820,7 +835,7 @@ OS4_QueueCopy(SDL_Renderer * renderer, SDL_RenderCommand * cmd, SDL_Texture * te
     const SDL_Rect * srcrect, const SDL_FRect *dstrect)
 {
     const SDL_FPoint center = { 0.0, 0.0 };
-    return OS4_QueueCopyEx(renderer, cmd, texture, srcrect, dstrect, 0.0, &center, SDL_FLIP_NONE);
+    return OS4_QueueCopyEx(renderer, cmd, texture, srcrect, dstrect, 0.0, &center, SDL_FLIP_NONE, 1.0f, 1.0f);
 }
 
 static int OS4_QueueGeometry(SDL_Renderer *renderer, SDL_RenderCommand *cmd, SDL_Texture *texture,

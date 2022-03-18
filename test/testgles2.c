@@ -372,6 +372,8 @@ typedef struct shader_data
 
     int angle_x, angle_y, angle_z;
 
+    GLuint position_buffer;
+    GLuint color_buffer;
 } shader_data;
 
 static void
@@ -688,8 +690,18 @@ main(int argc, char *argv[])
         GL_CHECK(ctx.myglEnableVertexAttribArray(data->attr_color));
 
         /* Populate attributes for position, color and texture coordinates etc. */
-        GL_CHECK(ctx.myglVertexAttribPointer(data->attr_position, 3, GL_FLOAT, GL_FALSE, 0, _vertices));
-        GL_CHECK(ctx.myglVertexAttribPointer(data->attr_color, 3, GL_FLOAT, GL_FALSE, 0, _colors));
+
+        GL_CHECK(ctx.myglGenBuffers(1, &data->position_buffer));
+        GL_CHECK(ctx.myglBindBuffer(GL_ARRAY_BUFFER, data->position_buffer));
+        GL_CHECK(ctx.myglBufferData(GL_ARRAY_BUFFER, sizeof(_vertices) * 4, _vertices, GL_STATIC_DRAW));
+        GL_CHECK(ctx.myglVertexAttribPointer(data->attr_position, 3, GL_FLOAT, GL_FALSE, 0, 0));
+        GL_CHECK(ctx.myglBindBuffer(GL_ARRAY_BUFFER, 0));
+
+        GL_CHECK(ctx.myglGenBuffers(1, &data->color_buffer));
+        GL_CHECK(ctx.myglBindBuffer(GL_ARRAY_BUFFER, data->color_buffer));
+        GL_CHECK(ctx.myglBufferData(GL_ARRAY_BUFFER, sizeof(_colors) * 4, _colors, GL_STATIC_DRAW));
+        GL_CHECK(ctx.myglVertexAttribPointer(data->attr_color, 3, GL_FLOAT, GL_FALSE, 0, 0));
+        GL_CHECK(ctx.myglBindBuffer(GL_ARRAY_BUFFER, 0));
 
         GL_CHECK(ctx.myglEnable(GL_CULL_FACE));
         GL_CHECK(ctx.myglEnable(GL_DEPTH_TEST));
