@@ -934,6 +934,22 @@ extern "C" {
 #define SDL_HINT_MOUSE_NORMAL_SPEED_SCALE    "SDL_MOUSE_NORMAL_SPEED_SCALE"
 
 /**
+ *  \brief  A variable controlling whether relative mouse mode constrains the mouse to the center of the window
+ *
+ *  This variable can be set to the following values:
+ *    "0"       - Relative mouse mode constrains the mouse to the window
+ *    "1"       - Relative mouse mode constrains the mouse to the center of the window
+ *
+ *  Constraining to the center of the window works better for FPS games and when the
+ *  application is running over RDP. Constraining to the whole window works better
+ *  for 2D games and increases the chance that the mouse will be in the correct
+ *  position when using high DPI mice.
+ *
+ *  By default SDL will constrain the mouse to the center of the window
+ */
+#define SDL_HINT_MOUSE_RELATIVE_MODE_CENTER    "SDL_MOUSE_RELATIVE_MODE_CENTER"
+
+/**
  *  \brief  A variable controlling whether relative mouse mode is implemented using mouse warping
  *
  *  This variable can be set to the following values:
@@ -1337,6 +1353,18 @@ extern "C" {
  *  By default SDL will generate mouse events for touch events
  */
 #define SDL_HINT_TOUCH_MOUSE_EVENTS    "SDL_TOUCH_MOUSE_EVENTS"
+
+/**
+ *  \brief  A variable controlling which touchpad should generate synthetic mouse events
+ *
+ *  This variable can be set to the following values:
+ *    "0"       - Only front touchpad should generate mouse events. Default
+ *    "1"       - Only back touchpad should generate mouse events.
+ *    "2"       - Both touchpads should generate mouse events.
+ *
+ *  By default SDL will generate mouse events for all touch devices
+ */
+#define SDL_HINT_VITA_TOUCH_MOUSE_DEVICE    "SDL_HINT_VITA_TOUCH_MOUSE_DEVICE"
 
 /**
  *  \brief  A variable controlling whether the Android / tvOS remotes
@@ -1922,10 +1950,33 @@ extern "C" {
  *  If not set or set to "", this hint is ignored. This hint must be set
  *  before the SDL_CreateWindow() call that it is intended to affect.
  *
- *  This hint is available since SDL 2.0.22. Before then, virtual devices are
- *  always ignored.
+ *  This hint is available since SDL 2.0.22.
  */
 #define SDL_HINT_X11_WINDOW_TYPE "SDL_X11_WINDOW_TYPE"
+
+/**
+ *  \brief  A variable that decides whether to send SDL_QUIT when closing the final window.
+ *
+ *  By default, SDL sends an SDL_QUIT event when there is only one window
+ *  and it receives an SDL_WINDOWEVENT_CLOSE event, under the assumption most
+ *  apps would also take the loss of this window as a signal to terminate the
+ *  program.
+ *
+ *  However, it's not unreasonable in some cases to have the program continue
+ *  to live on, perhaps to create new windows later.
+ *
+ *  Changing this hint to "0" will cause SDL to not send an SDL_QUIT event
+ *  when the final window is requesting to close. Note that in this case,
+ *  there are still other legitimate reasons one might get an SDL_QUIT
+ *  event: choosing "Quit" from the macOS menu bar, sending a SIGINT (ctrl-c)
+ *  on Unix, etc.
+ *
+ *  The default value is "1".  This hint can be changed at any time.
+ *
+ *  This hint is available since SDL 2.0.22. Before then, you always get
+ *  an SDL_QUIT event when closing the final window.
+ */
+#define SDL_HINT_QUIT_ON_LAST_WINDOW_CLOSE "SDL_QUIT_ON_LAST_WINDOW_CLOSE"
 
 
 /**
