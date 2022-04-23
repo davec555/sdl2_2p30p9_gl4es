@@ -767,8 +767,7 @@ OS4_SetWindowFullscreen(_THIS, SDL_Window * window, SDL_VideoDisplay * display, 
                     }
                 }
 
-                dprintf("Resetting keyboard\n");
-                SDL_ResetKeyboard();
+                OS4_ResetNormalKeys();
             }
         }
     }

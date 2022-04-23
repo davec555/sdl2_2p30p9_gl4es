@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2020 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2022 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -77,9 +77,9 @@ static void
 OS4_SyncKeyModifiers(_THIS)
 {
     int i;
-    UWORD qualifiers = IInput->PeekQualifier();
+    const UWORD qualifiers = IInput->PeekQualifier();
 
-    struct QualifierItem map[] = {
+    const struct QualifierItem map[] = {
         { IEQUALIFIER_LSHIFT, KMOD_LSHIFT, "Left Shift" },
         { IEQUALIFIER_RSHIFT, KMOD_RSHIFT, "Right Shift" },
         { IEQUALIFIER_CAPSLOCK, KMOD_CAPS, "Capslock" },
@@ -95,6 +95,51 @@ OS4_SyncKeyModifiers(_THIS)
     for (i = 0; i < SDL_arraysize(map); i++) {
         dprintf("%s %s\n", map[i].name, (qualifiers & map[i].qualifier) ? "ON" : "off");
         SDL_ToggleModState(map[i].keymod, (qualifiers & map[i].qualifier) != 0);
+    }
+}
+
+static SDL_bool
+OS4_IsModifier(SDL_Scancode code)
+{
+    switch (code) {
+        case SDL_SCANCODE_LSHIFT:
+        case SDL_SCANCODE_RSHIFT:
+        case SDL_SCANCODE_CAPSLOCK:
+        case SDL_SCANCODE_LCTRL:
+        case SDL_SCANCODE_RCTRL:
+        case SDL_SCANCODE_LALT:
+        case SDL_SCANCODE_RALT:
+        case SDL_SCANCODE_LGUI:
+        case SDL_SCANCODE_RGUI:
+            return SDL_TRUE;
+        default:
+            return SDL_FALSE;
+    }
+}
+
+void
+OS4_ResetNormalKeys(void)
+{
+    SDL_Scancode i = 0;
+    int count = 0;
+    const Uint8* state = SDL_GetKeyboardState(&count);
+
+    dprintf("Resetting keyboard\n");
+
+    // This is called during fullscreen toggle. Modifier keys keep
+    // their state and are synced separately. Releasing all keys could
+    // lead to a situation where Alt key would "stick" depending on
+    // when user released the key.
+
+    while (i < count) {
+        if (state[i] == SDL_PRESSED) {
+            if (OS4_IsModifier(i)) {
+                dprintf("Ignore pressed modifier key %d\n", i);
+            } else {
+                SDL_SendKeyboardKey(SDL_RELEASED, i);
+            }
+        }
+        i++;
     }
 }
 
@@ -145,7 +190,7 @@ OS4_TranslateUnicode(_THIS, uint16 code, uint32 qualifier)
 static void
 OS4_HandleKeyboard(_THIS, struct MyIntuiMessage * imsg)
 {
-    uint8 rawkey = imsg->Code & 0x7F;
+    const uint8 rawkey = imsg->Code & 0x7F;
 
     if (rawkey < sizeof(amiga_scancode_table) / sizeof(amiga_scancode_table[0])) {
 

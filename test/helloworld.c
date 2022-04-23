@@ -13,6 +13,17 @@ for doing ad-hoc testing related to AmigaOS 4 port.
 #warning "wrong endian?"
 #endif
 
+static void ToggleFullscreen(SDL_Window* w)
+{
+    static int t = 1;
+    static Uint32 counter = 0;
+
+    printf("Toggle fullscreen %d (counter %u)\n", t, counter++);
+    SDL_SetWindowFullscreen(w, t ? SDL_WINDOW_FULLSCREEN : 0);
+
+    t ^= 1;
+}
+
 static SDL_bool eventLoopInner(void)
 {
     SDL_bool running = SDL_TRUE;
@@ -39,9 +50,14 @@ static SDL_bool eventLoopInner(void)
             case SDL_KEYDOWN:
                 {
                     SDL_KeyboardEvent * ke = (SDL_KeyboardEvent *)&e;
-                    printf("Key down scancode %d (%s), keycode %d (%s)\n",
+                    printf("Key down scancode %d (%s), keycode %d (%s), mod %d\n",
                         ke->keysym.scancode, SDL_GetScancodeName(ke->keysym.scancode),
-                        ke->keysym.sym, SDL_GetKeyName(ke->keysym.sym));
+                        ke->keysym.sym, SDL_GetKeyName(ke->keysym.sym), ke->keysym.mod);
+
+                    if (ke->keysym.sym == 13 && ke->keysym.mod == 256) {
+                        SDL_Window * w = SDL_GetWindowFromID(ke->windowID);
+                        ToggleFullscreen(w);
+                    }
                 }
                 break;
 
@@ -68,12 +84,7 @@ static SDL_bool eventLoopInner(void)
                     } else if (strcmp("w", te->text) == 0) {
                         SDL_WarpMouseInWindow(w, 50, 50);
                     } else if (strcmp("f", te->text) == 0) {
-                        static int t = 1;
-
-                        printf("Toggle fullscreen %d\n", t);
-                        SDL_SetWindowFullscreen(w, t ? SDL_WINDOW_FULLSCREEN : 0);
-
-                        t ^= 1;
+                        ToggleFullscreen(w);
                     } else if (strcmp("t", te->text) == 0) {
                         puts("Change size...");
                         SDL_SetWindowSize(w, rand() % 1000, rand() % 1000);
@@ -84,7 +95,21 @@ static SDL_bool eventLoopInner(void)
                     } else if (strcmp("l", te->text) == 0) {
                         puts("Flash");
                         SDL_FlashWindow(w, SDL_FLASH_BRIEFLY);
+                    } else if (strcmp("x", te->text) == 0) {
+                        puts("Maximize");
+                        SDL_MaximizeWindow(w);
+                    } else if (strcmp("r", te->text) == 0) {
+                        puts("Restore");
+                        SDL_RestoreWindow(w);
+                    } else if (strcmp("b", te->text) == 0) {
+                        static int b = 1;
+                        SDL_SetWindowBordered(w, b);
+                        b ^= 1;
                     }
+
+                    int x, y;
+                    SDL_GetWindowPosition(w, &x, &y);
+                    printf("X %d, Y %d\n", x, y);
                 }
                 break;
 
@@ -129,6 +154,7 @@ static void eventLoop()
 {
     while (eventLoopInner()) {
         SDL_Delay(1);
+        //SDL_WaitEvent(NULL);
     }
 }
 
@@ -145,7 +171,14 @@ static void testPath(void)
 
 static void testWindow()
 {
-    SDL_Window * w = SDL_CreateWindow("blah", 100, 100, 100, 100, SDL_WINDOW_RESIZABLE);
+    //SDL_Window * w = SDL_CreateWindow("blah", 100, 100, 100, 100, SDL_WINDOW_RESIZABLE);
+    SDL_Window * w = SDL_CreateWindow("blah",
+        SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 100, 100,
+        SDL_WINDOW_RESIZABLE |
+        0
+        //SDL_WINDOW_MINIMIZED
+        //SDL_WINDOW_MAXIMIZED
+        );
 
     if (w) {
 #if 0
@@ -161,15 +194,28 @@ static void testWindow()
         SDL_MinimizeWindow(w);
         SDL_Delay(1000);
 
-        SDL_MaximizeWindow(w);
-
         SDL_SetWindowAlwaysOnTop(w, SDL_FALSE);
 
         SDL_Delay(1000);
 
         SDL_SetWindowAlwaysOnTop(w, SDL_TRUE);
 #endif
-        SDL_FlashWindow(w, SDL_FLASH_UNTIL_FOCUSED);
+        //SDL_FlashWindow(w, SDL_FLASH_UNTIL_FOCUSED);
+
+        //SDL_Rect rect = { 10, 10, 80, 80 };
+        //SDL_SetWindowMouseRect(w, &rect);
+        //SDL_SetWindowMouseRect(w, NULL);
+
+        SDL_SetWindowMinimumSize(w, 50, 50);
+        SDL_SetWindowMaximumSize(w, 200, 200);
+
+        //SDL_MaximizeWindow(w);
+        //SDL_Delay(1000);
+        //SDL_RestoreWindow(w);
+        //SDL_Delay(1000);
+        //SDL_MinimizeWindow(w);
+        //SDL_Delay(1000);
+        //SDL_RestoreWindow(w);
 
         eventLoop();
 
@@ -452,6 +498,10 @@ static void testRenderer()
     SDL_Renderer * rr = SDL_CreateRenderer(r, -1, SDL_RENDERER_SOFTWARE);
     SDL_Renderer * gr = SDL_CreateRenderer(g, -1, SDL_RENDERER_SOFTWARE);
     SDL_Renderer * br = SDL_CreateRenderer(b, -1, SDL_RENDERER_ACCELERATED);
+
+    SDL_RenderSetLogicalSize(rr, 50, 50);
+    SDL_RenderSetLogicalSize(gr, 80, 80);
+    SDL_RenderSetLogicalSize(br, 90, 90);
 
     if (r && g && b && rr && gr && br) {
         while (eventLoopInner()) {
