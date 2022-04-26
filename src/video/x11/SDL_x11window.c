@@ -222,7 +222,7 @@ X11_GetNetWMState(_THIS, Window xwindow)
         }
 
         if (fullscreen == 1) {
-            flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+            flags |= SDL_WINDOW_FULLSCREEN;
         }
 
         /* If the window is unmapped, numItems will be zero and _NET_WM_STATE_HIDDEN
@@ -677,8 +677,6 @@ X11_CreateWindow(_THIS, SDL_Window * window)
 
     /* For _ICC_PROFILE. */
     X11_XSelectInput(display, RootWindow(display, screen), PropertyChangeMask);
-
-    X11_XkbSelectEvents(display, XkbUseCoreKbd, XkbStateNotifyMask, XkbStateNotifyMask);
 
     X11_XFlush(display);
 
