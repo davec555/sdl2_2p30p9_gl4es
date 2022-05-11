@@ -188,6 +188,51 @@ OS4_TranslateUnicode(_THIS, uint16 code, uint32 qualifier)
 }
 
 static void
+OS4_DetectNumLock(const SDL_Scancode s)
+{
+    static SDL_bool oldState = SDL_FALSE;
+    SDL_bool currentState = SDL_FALSE;
+
+    // This function tries to determine whether NumLock is enabled or not,
+    // based on the reported scancodes
+
+    switch (s) {
+        case SDL_SCANCODE_KP_0:
+        case SDL_SCANCODE_KP_1:
+        case SDL_SCANCODE_KP_2:
+        case SDL_SCANCODE_KP_3:
+        case SDL_SCANCODE_KP_4:
+        case SDL_SCANCODE_KP_6:
+        case SDL_SCANCODE_KP_7:
+        case SDL_SCANCODE_KP_8:
+        case SDL_SCANCODE_KP_9:
+        case SDL_SCANCODE_KP_COMMA:
+            currentState = SDL_TRUE;
+            dprintf("Numlock on\n");
+            break;
+        case SDL_SCANCODE_HOME:
+        case SDL_SCANCODE_UP:
+        case SDL_SCANCODE_PAGEUP:
+        case SDL_SCANCODE_LEFT:
+        case SDL_SCANCODE_RIGHT:
+        case SDL_SCANCODE_END:
+        case SDL_SCANCODE_PAGEDOWN:
+        case SDL_SCANCODE_INSERT:
+        case SDL_SCANCODE_DELETE:
+            dprintf("Numlock off?\n");
+            break;
+        default:
+            return;
+    }
+
+    if (currentState != oldState) {
+        oldState = currentState;
+        dprintf("Toggling numlock state\n");
+        SDL_SendKeyboardKey(SDL_PRESSED, SDL_SCANCODE_NUMLOCKCLEAR);
+    }
+}
+
+static void
 OS4_HandleKeyboard(_THIS, struct MyIntuiMessage * imsg)
 {
     const uint8 rawkey = imsg->Code & 0x7F;
@@ -201,6 +246,8 @@ OS4_HandleKeyboard(_THIS, struct MyIntuiMessage * imsg)
 
             text[0] = OS4_TranslateUnicode(_this, imsg->Code, imsg->Qualifier);
             text[1] = '\0';
+
+            OS4_DetectNumLock(s);
 
             SDL_SendKeyboardKey(SDL_PRESSED, s);
 
