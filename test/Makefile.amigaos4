@@ -71,7 +71,7 @@ TARGETS = \
 	testwm2 \
 	testyuv \
 	torturethread \
-	
+
 all: $(TARGETS)
 
 checkkeys: checkkeys.o
@@ -80,10 +80,10 @@ checkkeys: checkkeys.o
 helloworld: helloworld.o
 	$(CC) -o $@ $^ $(LIBS)
 
-loopwave: loopwave.o
+loopwave: loopwave.o testutils.o
 	$(CC) -o $@ $^ $(LIBS)
 
-loopwavequeue: loopwavequeue.o
+loopwavequeue: loopwavequeue.o testutils.o
 	$(CC) -o $@ $^ $(LIBS)
 
 sdl2benchmark: sdl2benchmark.o
@@ -116,10 +116,10 @@ testautomation: testautomation.o \
 		      testautomation_hints.o
 	$(CC) -o $@ $^ $(LIBS) 
 
-testmultiaudio: testmultiaudio.o
+testmultiaudio: testmultiaudio.o testutils.o
 	$(CC) -o $@ $^ $(LIBS)
 
-testaudiohotplug: testaudiohotplug.o
+testaudiohotplug: testaudiohotplug.o testutils.o
 	$(CC) -o $@ $^ $(LIBS)
 
 testaudiocapture: testaudiocapture.o
@@ -152,10 +152,10 @@ testerror: testerror.o
 testfile: testfile.o
 	$(CC) -o $@ $^ $(LIBS)
 
-testgamecontroller: testgamecontroller.o
+testgamecontroller: testgamecontroller.o testutils.o
 	$(CC) -o $@ $^ $(LIBS)
 
-testgeometry: testgeometry.o
+testgeometry: testgeometry.o testutils.o
 	$(CC) -o $@ $^ $(LIBS)
  
 testgesture: testgesture.o
@@ -182,10 +182,10 @@ testrumble: testrumble.o
 testthread: testthread.o
 	$(CC) -o $@ $^ $(LIBS)
 
-testiconv: testiconv.o
+testiconv: testiconv.o testutils.o
 	$(CC) -o $@ $^ $(LIBS)
 
-testime: testime.o
+testime: testime.o testutils.o
 	$(CC) -o $@ $^ $(LIBS)
 
 testjoystick: testjoystick.o
@@ -200,13 +200,13 @@ testloadso: testloadso.o
 testlock: testlock.o
 	$(CC) -o $@ $^ $(LIBS)
 
-testnative: testnative.o testnativeamigaos4.o
+testnative: testnative.o testnativeamigaos4.o testutils.o
 	$(CC) -o $@ $^ $(LIBS)
 
 testoffscreen: testoffscreen.o
 	$(CC) -o $@ $^ $(LIBS)
 
-testoverlay2: testoverlay2.o testyuv_cvt.o
+testoverlay2: testoverlay2.o testyuv_cvt.o testutils.o
 	$(CC) -o $@ $^ $(LIBS)
 
 testplatform: testplatform.o
@@ -218,10 +218,10 @@ testpower: testpower.o
 testfilesystem: testfilesystem.o
 	$(CC) -o $@ $^ $(LIBS)
 
-testrendertarget: testrendertarget.o
+testrendertarget: testrendertarget.o testutils.o
 	$(CC) -o $@ $^ $(LIBS)
 
-testscale: testscale.o
+testscale: testscale.o testutils.o
 	$(CC) -o $@ $^ $(LIBS)
 
 testsem: testsem.o
@@ -236,13 +236,13 @@ testshader: testshader.o
 testshape: testshape.o
 	$(CC) -o $@ $^ $(LIBS)
 
-testsprite2: testsprite2.o
+testsprite2: testsprite2.o testutils.o
 	$(CC) -o $@ $^ $(LIBS)
 
-testspriteminimal: testspriteminimal.o
+testspriteminimal: testspriteminimal.o testutils.o
 	$(CC) -o $@ $^ $(LIBS)
 
-teststreaming: teststreaming.o
+teststreaming: teststreaming.o testutils.o
 	$(CC) -o $@ $^ $(LIBS)
 
 testtimer: testtimer.o
@@ -251,7 +251,7 @@ testtimer: testtimer.o
 testver: testver.o
 	$(CC) -o $@ $^ $(LIBS)
 
-testviewport: testviewport.o
+testviewport: testviewport.o testutils.o
 	$(CC) -o $@ $^ $(LIBS)
 
 testwm2: testwm2.o
@@ -263,7 +263,7 @@ testyuv: testyuv.o testyuv_cvt.o
 torturethread: torturethread.o
 	$(CC) -o $@ $^ $(LIBS)
 
-testrendercopyex: testrendercopyex.o
+testrendercopyex: testrendercopyex.o testutils.o
 	$(CC) -o $@ $^ $(LIBS)
 
 testmessage: testmessage.o
@@ -281,7 +281,7 @@ testbounds: testbounds.o
 testcustomcursor: testcustomcursor.o
 	$(CC) -o $@ $^ $(LIBS)
 
-controllermap: controllermap.o
+controllermap: controllermap.o testutils.o
 	$(CC) -o $@ $^ $(LIBS)
 
 testvulkan: testvulkan.o
