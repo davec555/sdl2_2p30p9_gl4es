@@ -330,6 +330,9 @@
     <ClInclude Include="..\src\SDL_internal.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\SDL_log_c.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
     <ClInclude Include="..\src\locale\SDL_syslocale.h">
       <Filter>Source Files</Filter>
     </ClInclude>
@@ -819,9 +822,15 @@
     <ClCompile Include="..\src\misc\SDL_url.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClInclude Include="..\src\joystick\controller_type.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\joystick\windows\SDL_windows_gaming_input.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\joystick\controller_type.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

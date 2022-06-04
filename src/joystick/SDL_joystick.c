@@ -324,6 +324,28 @@ SDL_JoystickNameForIndex(int device_index)
 }
 
 /*
+ * Get the implementation dependent path of a joystick
+ */
+const char *
+SDL_JoystickPathForIndex(int device_index)
+{
+    SDL_JoystickDriver *driver;
+    const char *path = NULL;
+
+    SDL_LockJoysticks();
+    if (SDL_GetDriverAndJoystickIndex(device_index, &driver, &device_index)) {
+        path = driver->GetDevicePath(device_index);
+    }
+    SDL_UnlockJoysticks();
+
+    /* FIXME: Really we should reference count this path so it doesn't go away after unlock */
+    if (!path) {
+        SDL_Unsupported();
+    }
+    return path;
+}
+
+/*
  *  Get the player index of a joystick, or -1 if it's not available
  */
 int
@@ -389,6 +411,7 @@ SDL_JoystickOpen(int device_index)
     SDL_Joystick *joystick;
     SDL_Joystick *joysticklist;
     const char *joystickname = NULL;
+    const char *joystickpath = NULL;
     SDL_JoystickPowerLevel initial_power_level;
 
     SDL_LockJoysticks();
@@ -437,6 +460,13 @@ SDL_JoystickOpen(int device_index)
         joystick->name = SDL_strdup(joystickname);
     } else {
         joystick->name = NULL;
+    }
+
+    joystickpath = driver->GetDevicePath(device_index);
+    if (joystickpath) {
+        joystick->path = SDL_strdup(joystickpath);
+    } else {
+        joystick->path = NULL;
     }
 
     joystick->guid = driver->GetDeviceGUID(device_index);
@@ -496,8 +526,22 @@ int
 SDL_JoystickAttachVirtual(SDL_JoystickType type,
                           int naxes, int nbuttons, int nhats)
 {
+    SDL_VirtualJoystickDesc desc;
+
+    SDL_zero(desc);
+    desc.version = SDL_VIRTUAL_JOYSTICK_DESC_VERSION;
+    desc.type = (Uint16)type;
+    desc.naxes = (Uint16)naxes;
+    desc.nbuttons = (Uint16)nbuttons;
+    desc.nhats = (Uint16)nhats;
+    return SDL_JoystickAttachVirtualEx(&desc);
+}
+
+int
+SDL_JoystickAttachVirtualEx(const SDL_VirtualJoystickDesc *desc)
+{
 #if SDL_JOYSTICK_VIRTUAL
-    return SDL_JoystickAttachVirtualInner(type, naxes, nbuttons, nhats);
+    return SDL_JoystickAttachVirtualInner(desc);
 #else
     return SDL_SetError("SDL not built with virtual-joystick support");
 #endif
@@ -843,6 +887,23 @@ SDL_JoystickName(SDL_Joystick *joystick)
     return joystick->name;
 }
 
+/*
+ * Get the implementation dependent path of this joystick
+ */
+const char *
+SDL_JoystickPath(SDL_Joystick *joystick)
+{
+    if (!SDL_PrivateJoystickValid(joystick)) {
+        return NULL;
+    }
+
+    if (!joystick->path) {
+        SDL_Unsupported();
+        return NULL;
+    }
+    return joystick->path;
+}
+
 /**
  *  Get the player index of an opened joystick, or -1 if it's not available
  */
@@ -1015,14 +1076,13 @@ SDL_JoystickSetLED(SDL_Joystick *joystick, Uint8 red, Uint8 green, Uint8 blue)
     SDL_LockJoysticks();
 
     isfreshvalue = red != joystick->led_red ||
-        green != joystick->led_green ||
-        blue != joystick->led_blue;
+                   green != joystick->led_green ||
+                   blue != joystick->led_blue;
 
-    if ( isfreshvalue || SDL_TICKS_PASSED( SDL_GetTicks(), joystick->led_expiration ) ) {
+    if (isfreshvalue || SDL_TICKS_PASSED(SDL_GetTicks(), joystick->led_expiration)) {
         result = joystick->driver->SetLED(joystick, red, green, blue);
         joystick->led_expiration = SDL_GetTicks() + SDL_LED_MIN_REPEAT_MS;
-    }
-    else {
+    } else {
         /* Avoid spamming the driver */
         result = 0;
     }
@@ -1109,6 +1169,7 @@ SDL_JoystickClose(SDL_Joystick *joystick)
     }
 
     SDL_free(joystick->name);
+    SDL_free(joystick->path);
     SDL_free(joystick->serial);
 
     /* Free the data associated with this joystick */
@@ -2005,6 +2066,13 @@ SDL_GetJoystickGameControllerType(const char *name, Uint16 vendor, Uint16 produc
 }
 
 SDL_bool
+SDL_IsJoystickXboxOne(Uint16 vendor_id, Uint16 product_id)
+{
+    EControllerType eType = GuessControllerType(vendor_id, product_id);
+    return (eType == k_eControllerType_XBoxOneController);
+}
+
+SDL_bool
 SDL_IsJoystickXboxOneElite(Uint16 vendor_id, Uint16 product_id)
 {
     if (vendor_id == USB_VENDOR_MICROSOFT) {
@@ -2504,8 +2572,7 @@ SDL_bool SDL_ShouldIgnoreJoystick(const char *name, SDL_JoystickGUID guid)
         return SDL_TRUE;
     }
 
-    if (SDL_IsGameControllerNameAndGUID(name, guid) &&
-        SDL_ShouldIgnoreGameController(name, guid)) {
+    if (SDL_ShouldIgnoreGameController(name, guid)) {
         return SDL_TRUE;
     }
 
@@ -2636,6 +2703,14 @@ Uint16 SDL_JoystickGetProductVersion(SDL_Joystick *joystick)
 
     SDL_GetJoystickGUIDInfo(guid, NULL, NULL, &version);
     return version;
+}
+
+Uint16 SDL_JoystickGetFirmwareVersion(SDL_Joystick *joystick)
+{
+    if (!SDL_PrivateJoystickValid(joystick)) {
+        return 0;
+    }
+    return joystick->firmware_version;
 }
 
 const char *SDL_JoystickGetSerial(SDL_Joystick *joystick)

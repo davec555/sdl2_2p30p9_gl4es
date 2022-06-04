@@ -115,6 +115,12 @@ char *alloca();
 # endif
 #endif
 
+#ifdef SIZE_MAX
+# define SDL_SIZE_MAX SIZE_MAX
+#else
+# define SDL_SIZE_MAX ((size_t) -1)
+#endif
+
 /**
  * Check if the compiler supports a given builtin.
  * Supported by virtually all clang versions and recent gcc. Use this
@@ -409,6 +415,9 @@ SDL_COMPILE_TIME_ASSERT(enum, sizeof(SDL_DUMMY_ENUM) == sizeof(int));
 /** \endcond */
 
 #include "begin_code.h"
+#ifdef __AMIGAOS4__
+#include <limits.h> /* TODO: suggested by the cross-compiler. Is this really a correct fix / place? */
+#endif
 /* Set up for C function definitions, even when using C++ */
 #ifdef __cplusplus
 extern "C" {
@@ -462,8 +471,8 @@ extern DECLSPEC int SDLCALL SDL_GetNumAllocations(void);
 extern DECLSPEC char *SDLCALL SDL_getenv(const char *name);
 extern DECLSPEC int SDLCALL SDL_setenv(const char *name, const char *value, int overwrite);
 
-extern DECLSPEC void SDLCALL SDL_qsort(void *base, size_t nmemb, size_t size, int (*compare) (const void *, const void *));
-extern DECLSPEC void * SDLCALL SDL_bsearch(const void *key, const void *base, size_t nmemb, size_t size, int (*compare) (const void *, const void *));
+extern DECLSPEC void SDLCALL SDL_qsort(void *base, size_t nmemb, size_t size, int (SDLCALL *compare) (const void *, const void *));
+extern DECLSPEC void * SDLCALL SDL_bsearch(const void *key, const void *base, size_t nmemb, size_t size, int (SDLCALL *compare) (const void *, const void *));
 
 extern DECLSPEC int SDLCALL SDL_abs(int x);
 
@@ -727,6 +736,65 @@ SDL_FORCE_INLINE void *SDL_memcpy4(SDL_OUT_BYTECAP(dwords*4) void *dst, SDL_IN_B
 {
     return SDL_memcpy(dst, src, dwords * 4);
 }
+
+/**
+ * If a * b would overflow, return -1. Otherwise store a * b via ret
+ * and return 0.
+ *
+ * \since This function is available since SDL 2.24.0.
+ */
+SDL_FORCE_INLINE int SDL_size_mul_overflow (size_t a,
+                                            size_t b,
+                                            size_t *ret)
+{
+    if (a != 0 && b > SDL_SIZE_MAX / a) {
+        return -1;
+    }
+    *ret = a * b;
+    return 0;
+}
+
+#if _SDL_HAS_BUILTIN(__builtin_mul_overflow)
+/* This needs to be wrapped in an inline rather than being a direct #define,
+ * because __builtin_mul_overflow() is type-generic, but we want to be
+ * consistent about interpreting a and b as size_t. */
+SDL_FORCE_INLINE int _SDL_size_mul_overflow_builtin (size_t a,
+                                                     size_t b,
+                                                     size_t *ret)
+{
+    return __builtin_mul_overflow(a, b, ret) == 0 ? 0 : -1;
+}
+#define SDL_size_mul_overflow(a, b, ret) (_SDL_size_mul_overflow_builtin(a, b, ret))
+#endif
+
+/**
+ * If a + b would overflow, return -1. Otherwise store a + b via ret
+ * and return 0.
+ *
+ * \since This function is available since SDL 2.24.0.
+ */
+SDL_FORCE_INLINE int SDL_size_add_overflow (size_t a,
+                                            size_t b,
+                                            size_t *ret)
+{
+    if (b > SDL_SIZE_MAX - a) {
+        return -1;
+    }
+    *ret = a + b;
+    return 0;
+}
+
+#if _SDL_HAS_BUILTIN(__builtin_add_overflow)
+/* This needs to be wrapped in an inline rather than being a direct #define,
+ * the same as the call to __builtin_mul_overflow() above. */
+SDL_FORCE_INLINE int _SDL_size_add_overflow_builtin (size_t a,
+                                                     size_t b,
+                                                     size_t *ret)
+{
+    return __builtin_add_overflow(a, b, ret) == 0 ? 0 : -1;
+}
+#define SDL_size_add_overflow(a, b, ret) (_SDL_size_add_overflow_builtin(a, b, ret))
+#endif
 
 /* Ends C function definitions when using C++ */
 #ifdef __cplusplus

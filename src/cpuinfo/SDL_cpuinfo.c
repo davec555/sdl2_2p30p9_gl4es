@@ -135,7 +135,7 @@ CPU_haveCPUID(void)
 {
     int has_CPUID = 0;
 
-/* *INDENT-OFF* */
+/* *INDENT-OFF* */ /* clang-format off */
 #ifndef SDL_CPUINFO_DISABLED
 #if (defined(__GNUC__) || defined(__llvm__)) && defined(__i386__)
     __asm__ (
@@ -224,7 +224,7 @@ done:
     );
 #endif
 #endif
-/* *INDENT-ON* */
+/* *INDENT-ON* */ /* clang-format on */
     return has_CPUID;
 }
 
@@ -1082,10 +1082,18 @@ void *
 SDL_SIMDAlloc(const size_t len)
 {
     const size_t alignment = SDL_SIMDGetAlignment();
-    const size_t padding = alignment - (len % alignment);
-    const size_t padded = (padding != alignment) ? (len + padding) : len;
+    const size_t padding = (alignment - (len % alignment)) % alignment;
     Uint8 *retval = NULL;
-    Uint8 *ptr = (Uint8 *) SDL_malloc(padded + alignment + sizeof (void *));
+    Uint8 *ptr;
+    size_t to_allocate;
+
+    /* alignment + padding + sizeof (void *) is bounded (a few hundred
+     * bytes max), so no need to check for overflow within that argument */
+    if (SDL_size_add_overflow(len, alignment + padding + sizeof (void *), &to_allocate)) {
+        return NULL;
+    }
+
+    ptr = (Uint8 *) SDL_malloc(to_allocate);
     if (ptr) {
         /* store the actual allocated pointer right before our aligned pointer. */
         retval = ptr + sizeof (void *);
@@ -1099,12 +1107,18 @@ void *
 SDL_SIMDRealloc(void *mem, const size_t len)
 {
     const size_t alignment = SDL_SIMDGetAlignment();
-    const size_t padding = alignment - (len % alignment);
-    const size_t padded = (padding != alignment) ? (len + padding) : len;
+    const size_t padding = (alignment - (len % alignment)) % alignment;
     Uint8 *retval = (Uint8*) mem;
     void *oldmem = mem;
     size_t memdiff = 0, ptrdiff;
     Uint8 *ptr;
+    size_t to_allocate;
+
+    /* alignment + padding + sizeof (void *) is bounded (a few hundred
+     * bytes max), so no need to check for overflow within that argument */
+    if (SDL_size_add_overflow(len, alignment + padding + sizeof (void *), &to_allocate)) {
+        return NULL;
+    }
 
     if (mem) {
         void **realptr = (void **) mem;
@@ -1115,7 +1129,7 @@ SDL_SIMDRealloc(void *mem, const size_t len)
         memdiff = ((size_t) oldmem) - ((size_t) mem);
     }
 
-    ptr = (Uint8 *) SDL_realloc(mem, padded + alignment + sizeof (void *));
+    ptr = (Uint8 *) SDL_realloc(mem, to_allocate);
 
     if (ptr == NULL) {
         return NULL; /* Out of memory, bail! */
