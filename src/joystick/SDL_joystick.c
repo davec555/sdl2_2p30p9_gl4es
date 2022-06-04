@@ -2066,6 +2066,13 @@ SDL_GetJoystickGameControllerType(const char *name, Uint16 vendor, Uint16 produc
 }
 
 SDL_bool
+SDL_IsJoystickXboxOne(Uint16 vendor_id, Uint16 product_id)
+{
+    EControllerType eType = GuessControllerType(vendor_id, product_id);
+    return (eType == k_eControllerType_XBoxOneController);
+}
+
+SDL_bool
 SDL_IsJoystickXboxOneElite(Uint16 vendor_id, Uint16 product_id)
 {
     if (vendor_id == USB_VENDOR_MICROSOFT) {
@@ -2696,6 +2703,14 @@ Uint16 SDL_JoystickGetProductVersion(SDL_Joystick *joystick)
 
     SDL_GetJoystickGUIDInfo(guid, NULL, NULL, &version);
     return version;
+}
+
+Uint16 SDL_JoystickGetFirmwareVersion(SDL_Joystick *joystick)
+{
+    if (!SDL_PrivateJoystickValid(joystick)) {
+        return 0;
+    }
+    return joystick->firmware_version;
 }
 
 const char *SDL_JoystickGetSerial(SDL_Joystick *joystick)

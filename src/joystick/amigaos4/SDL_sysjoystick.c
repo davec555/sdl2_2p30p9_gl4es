@@ -268,6 +268,12 @@ AMIGAINPUT_GetDeviceName(int device_index)
     return joystickList[device_index].name;
 }
 
+static const char*
+AMIGAINPUT_GetDevicePath(int device_index)
+{
+    return NULL;
+}
+
 static int
 AMIGAINPUT_GetDevicePlayerIndex(int device_index)
 {
@@ -595,11 +601,10 @@ AMIGAINPUT_RumbleTriggers(SDL_Joystick * joystick, Uint16 left_rumble, Uint16 ri
     return SDL_Unsupported();
 }
 
-static SDL_bool
-AMIGAINPUT_HasLED(SDL_Joystick * joystick)
+static Uint32
+AMIGAINPUT_GetCapabilities(SDL_Joystick * joystick)
 {
-    dprintf("Called\n");
-    return SDL_FALSE;
+    return 0;
 }
 
 static int
@@ -636,6 +641,7 @@ SDL_JoystickDriver SDL_AMIGAINPUT_JoystickDriver =
     AMIGAINPUT_GetCount,
     AMIGAINPUT_Detect,
     AMIGAINPUT_GetDeviceName,
+    AMIGAINPUT_GetDevicePath,
     AMIGAINPUT_GetDevicePlayerIndex,
     AMIGAINPUT_SetDevicePlayerIndex,
     AMIGAINPUT_GetDeviceGUID,
@@ -643,7 +649,7 @@ SDL_JoystickDriver SDL_AMIGAINPUT_JoystickDriver =
     AMIGAINPUT_Open,
     AMIGAINPUT_Rumble,
     AMIGAINPUT_RumbleTriggers,
-    AMIGAINPUT_HasLED,
+    AMIGAINPUT_GetCapabilities,
     AMIGAINPUT_SetLED,
     AMIGAINPUT_SendEffect,
     AMIGAINPUT_SetSensorsEnabled,
