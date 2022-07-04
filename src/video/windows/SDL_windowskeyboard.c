@@ -20,7 +20,7 @@
 */
 #include "../../SDL_internal.h"
 
-#if SDL_VIDEO_DRIVER_WINDOWS
+#if SDL_VIDEO_DRIVER_WINDOWS && !defined(__XBOXONE__) && !defined(__XBOXSERIES__)
 
 #include "SDL_windowsvideo.h"
 #include "SDL_hints.h"
@@ -623,7 +623,7 @@ IME_GetId(SDL_VideoData *videodata, UINT uIndex)
         dwRet[0] = dwRet[1] = 0;
         return dwRet[0];
     }
-    if (ImmGetIMEFileNameA(hkl, szTemp, sizeof(szTemp) - 1) <= 0) {
+    if (!ImmGetIMEFileNameA(hkl, szTemp, sizeof(szTemp) - 1)) {
         dwRet[0] = dwRet[1] = 0;
         return dwRet[0];
     }
@@ -689,7 +689,7 @@ IME_SetupAPI(SDL_VideoData *videodata)
         return;
 
     hkl = videodata->ime_hkl;
-    if (ImmGetIMEFileNameA(hkl, ime_file, sizeof(ime_file) - 1) <= 0)
+    if (!ImmGetIMEFileNameA(hkl, ime_file, sizeof(ime_file) - 1))
         return;
 
     hime = SDL_LoadObject(ime_file);

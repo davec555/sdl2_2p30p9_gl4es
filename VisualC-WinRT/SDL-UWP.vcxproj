@@ -45,6 +45,7 @@
     <ClInclude Include="..\include\SDL_error.h" />
     <ClInclude Include="..\include\SDL_events.h" />
     <ClInclude Include="..\include\SDL_filesystem.h" />
+    <ClInclude Include="..\include\SDL_guid.h" />
     <ClInclude Include="..\include\SDL_haptic.h" />
     <ClInclude Include="..\include\SDL_hints.h" />
     <ClInclude Include="..\include\SDL_hidapi.h" />
@@ -106,7 +107,6 @@
     <ClInclude Include="..\src\events\SDL_events_c.h" />
     <ClInclude Include="..\src\events\SDL_keyboard_c.h" />
     <ClInclude Include="..\src\events\SDL_mouse_c.h" />
-    <ClInclude Include="..\src\events\SDL_sysevents.h" />
     <ClInclude Include="..\src\events\SDL_touch_c.h" />
     <ClInclude Include="..\src\events\SDL_windowevents_c.h" />
     <ClInclude Include="..\src\haptic\SDL_haptic_c.h" />
@@ -301,6 +301,7 @@
     <ClCompile Include="..\src\SDL_dataqueue.c" />
     <ClCompile Include="..\src\SDL_list.c" />
     <ClCompile Include="..\src\SDL_error.c" />
+    <ClCompile Include="..\src\SDL_guid.c" />
     <ClCompile Include="..\src\SDL_hints.c" />
     <ClCompile Include="..\src\SDL_log.c" />
     <ClCompile Include="..\src\sensor\dummy\SDL_dummysensor.c" />
@@ -309,6 +310,8 @@
     <ClCompile Include="..\src\stdlib\SDL_getenv.c" />
     <ClCompile Include="..\src\stdlib\SDL_iconv.c" />
     <ClCompile Include="..\src\stdlib\SDL_malloc.c" />
+    <ClCompile Include="..\src\stdlib\SDL_memcpy.c" />
+    <ClCompile Include="..\src\stdlib\SDL_memset.c" />
     <ClCompile Include="..\src\stdlib\SDL_qsort.c" />
     <ClCompile Include="..\src\stdlib\SDL_stdlib.c" />
     <ClCompile Include="..\src\stdlib\SDL_string.c" />

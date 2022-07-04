@@ -13,7 +13,7 @@ dnl Set various version strings - taken gratefully from the GTk sources
 # See docs/release_checklist.md
 SDL_MAJOR_VERSION=2
 SDL_MINOR_VERSION=23
-SDL_MICRO_VERSION=0
+SDL_MICRO_VERSION=1
 SDL_VERSION=$SDL_MAJOR_VERSION.$SDL_MINOR_VERSION.$SDL_MICRO_VERSION
 
 SDL_BINARY_AGE=`expr $SDL_MINOR_VERSION \* 100 + $SDL_MICRO_VERSION`
@@ -60,10 +60,13 @@ dnl AC_CANONICAL_HOST
 dnl Check for tools
 AC_PROG_CC
 AC_PROG_CXX
-AC_SYS_LARGEFILE
+AC_PROG_EGREP
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 PKG_PROG_PKG_CONFIG
+
+dnl 64-bit file offsets if possible unless --disable-largefile is specified
+AC_SYS_LARGEFILE
 
 dnl Make sure that srcdir is a full pathname
 case "$host" in
@@ -224,9 +227,8 @@ case "$enable_assertions" in
         ;;
 esac
 
-AC_DEFINE_UNQUOTED([SDL_BUILD_MAJOR_VERSION], $SDL_MAJOR_VERSION, [ ])
-AC_DEFINE_UNQUOTED([SDL_BUILD_MINOR_VERSION], $SDL_MINOR_VERSION, [ ])
-AC_DEFINE_UNQUOTED([SDL_BUILD_MICRO_VERSION], $SDL_MICRO_VERSION, [ ])
+dnl For use in static assertions
+EXTRA_CFLAGS="$EXTRA_CFLAGS -DSDL_BUILD_MAJOR_VERSION=$SDL_MAJOR_VERSION -DSDL_BUILD_MINOR_VERSION=$SDL_MINOR_VERSION -DSDL_BUILD_MICRO_VERSION=$SDL_MICRO_VERSION"
 
 dnl See whether we can use gcc style dependency tracking
 AC_ARG_ENABLE(dependency-tracking,
@@ -319,7 +321,8 @@ if test x$enable_libc = xyes; then
     AC_DEFINE(HAVE_LIBC, 1, [ ])
 
 dnl Check for C library headers
-    AC_HEADER_STDC
+dnl AC_CHECK_INCLUDES_DEFAULT is an autoconf-2.7x thing where AC_HEADER_STDC is deprecated.
+    m4_ifdef([AC_CHECK_INCLUDES_DEFAULT], [AC_CHECK_INCLUDES_DEFAULT], [AC_HEADER_STDC])
     AC_CHECK_HEADERS(sys/types.h stdio.h stdlib.h stddef.h stdarg.h malloc.h memory.h string.h strings.h wchar.h inttypes.h stdint.h limits.h ctype.h math.h float.h iconv.h signal.h)
 
 dnl Check for typedefs, structures, etc.
@@ -851,6 +854,70 @@ dnl Check for various instruction support
         fi
     fi
 fi
+
+    AC_ARG_ENABLE(lsx,
+[AS_HELP_STRING([--enable-lsx], [use LSX assembly routines [default=yes]])],
+                  , enable_lsx=yes)
+    if test x$enable_lsx = xyes; then
+        save_CFLAGS="$CFLAGS"
+        have_gcc_lsx=no
+        AC_MSG_CHECKING(for GCC -mlsx option)
+        lsx_CFLAGS="-mlsx"
+        CFLAGS="$save_CFLAGS $lsx_CFLAGS"
+
+        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+        #ifndef __loongarch_sx
+        #error Assembler CPP flag not enabled
+        #endif
+        ]], [])], [have_gcc_lsx=yes], [])
+        AC_MSG_RESULT($have_gcc_lsx)
+        CFLAGS="$save_CFLAGS"
+
+        if test x$have_gcc_lsx = xyes; then
+            EXTRA_CFLAGS="$EXTRA_CFLAGS $lsx_CFLAGS"
+            SUMMARY_math="${SUMMARY_math} lsx"
+        fi
+    fi
+
+    AC_MSG_CHECKING(for lsxintrin.h)
+    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <lsxintrin.h>]])],
+       [have_lsxintrin_h_hdr=yes],[have_lsxintrin_h_hdr=no])
+    AC_MSG_RESULT($have_lsxintrin_h_hdr)
+    if test x$have_lsxintrin_h_hdr = xyes; then
+        AC_DEFINE(HAVE_LSXINTRIN_H, 1, [ ])
+    fi
+
+    AC_ARG_ENABLE(lasx,
+[AS_HELP_STRING([--enable-lasx], [use LASX assembly routines [default=yes]])],
+                  , enable_LASX=yes)
+    if test x$enable_LASX = xyes; then
+        save_CFLAGS="$CFLAGS"
+        have_gcc_lasx=no
+        AC_MSG_CHECKING(for GCC -mlasx option)
+        lasx_CFLAGS="-mlasx"
+        CFLAGS="$save_CFLAGS $lasx_CFLAGS"
+
+        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+        #ifndef __loongarch_asx
+        #error Assembler CPP flag not enabled
+        #endif
+        ]], [])], [have_gcc_lasx=yes], [])
+        AC_MSG_RESULT($have_gcc_lasx)
+        CFLAGS="$save_CFLAGS"
+
+        if test x$have_gcc_lasx = xyes; then
+            EXTRA_CFLAGS="$EXTRA_CFLAGS $lasx_CFLAGS"
+            SUMMARY_math="${SUMMARY_math} lasx"
+        fi
+    fi
+
+    AC_MSG_CHECKING(for lasxintrin.h)
+    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <lasxintrin.h>]])],
+       [have_lasxintrin_h_hdr=yes],[have_lasxintrin_h_hdr=no])
+    AC_MSG_RESULT($have_lasxintrin_h_hdr)
+    if test x$have_lasxintrin_h_hdr = xyes; then
+        AC_DEFINE(HAVE_LASXINTRIN_H, 1, [ ])
+    fi
 
 dnl See if the OSS audio interface is supported
 CheckOSS()
@@ -3220,6 +3287,10 @@ CheckWINDOWS()
     if test x$have_roapi_h = xyes; then
         AC_DEFINE(HAVE_ROAPI_H, 1, [ ])
     fi
+    AC_CHECK_HEADER(shellscalingapi.h,have_shellscalingapi_h=yes)
+    if test x$shellscalingapi_h = xyes; then
+        AC_DEFINE(HAVE_SHELLSCALINGAPI_H, 1, [ ])
+    fi
 }
 
 dnl Determine whether the compiler can produce OS/2 executables
@@ -3246,6 +3317,17 @@ CheckDIRECTX()
     if test x$enable_directx = xyes; then
         AC_CHECK_HEADER(d3d9.h, have_d3d=yes)
         AC_CHECK_HEADER(d3d11_1.h, have_d3d11=yes)
+        AC_MSG_CHECKING(for d3d12 Windows SDK version)
+        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <winsdkver.h>
+#include <sdkddkver.h>
+#include <d3d12.h>
+ID3D12Device1 *device;
+#if WDK_NTDDI_VERSION <= 0x0A000008
+asdf
+#endif
+            ]])], [have_d3d12=yes],[have_d3d12=no])
+        AC_MSG_RESULT($have_d3d12)
         AC_CHECK_HEADER(ddraw.h, have_ddraw=yes)
         AC_CHECK_HEADER(dsound.h, have_dsound=yes)
         AC_CHECK_HEADER(dinput.h, have_dinput=yes)
@@ -3972,6 +4054,10 @@ case "$host" in
             if test x$enable_render_d3d = xyes -a x$have_d3d11 = xyes; then
                 AC_DEFINE(SDL_VIDEO_RENDER_D3D11, 1, [ ])
                 SUMMARY_video="${SUMMARY_video} d3d11"
+            fi
+            if test x$enable_render_d3d = xyes -a x$have_d3d12 = xyes; then
+                AC_DEFINE(SDL_VIDEO_RENDER_D3D12, 1, [ ])
+                SUMMARY_video="${SUMMARY_video} d3d12"
             fi
         fi
         # Set up files for the audio library
