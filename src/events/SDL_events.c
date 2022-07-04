@@ -35,7 +35,7 @@
 #include "SDL_syswm.h"
 
 #undef SDL_PRIs64
-#if defined(__WIN32__) && !defined(__CYGWIN__)
+#if (defined(__WIN32__) || defined(__GDK__)) && !defined(__CYGWIN__)
 #define SDL_PRIs64  "I64d"
 #else
 #define SDL_PRIs64  "lld"
@@ -973,7 +973,10 @@ SDL_WaitEventTimeout_Device(_THIS, SDL_Window *wakeup_window, SDL_Event * event,
             status = _this->WaitEventTimeout(_this, loop_timeout);
             /* Set wakeup_window to NULL without holding the lock. */
             _this->wakeup_window = NULL;
-            if (status <= 0) {
+            if (status == 0 && need_periodic_poll && loop_timeout == PERIODIC_POLL_INTERVAL_MS) {
+                /* We may have woken up to poll. Try again */
+                continue;
+            } else if (status <= 0) {
                 /* There is either an error or the timeout is elapsed: return */
                 return status;
             }
