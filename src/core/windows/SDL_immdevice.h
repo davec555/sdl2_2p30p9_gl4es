@@ -19,22 +19,26 @@
   3. This notice may not be removed or altered from any source distribution.
 */
 
-#ifndef SDL_ime_h_
-#define SDL_ime_h_
+#ifndef SDL_IMMDEVICE_H
+#define SDL_IMMDEVICE_H
 
-#include "../../SDL_internal.h"
+#include "SDL_atomic.h"
+#include "SDL_audio.h"
 
-#include "SDL_stdinc.h"
-#include "SDL_rect.h"
+#define COBJMACROS
+#include <mmdeviceapi.h>
+#include <mmreg.h>
 
-extern SDL_bool SDL_IME_Init(void);
-extern void SDL_IME_Quit(void);
-extern void SDL_IME_SetFocus(SDL_bool focused);
-extern void SDL_IME_Reset(void);
-extern SDL_bool SDL_IME_ProcessKeyEvent(Uint32 keysym, Uint32 keycode, Uint8 state);
-extern void SDL_IME_UpdateTextRect(const SDL_Rect *rect);
-extern void SDL_IME_PumpEvents(void);
+int SDL_IMMDevice_Init(void);
+void SDL_IMMDevice_Quit(void);
+int SDL_IMMDevice_Get(LPCWSTR devid, IMMDevice **device, SDL_bool iscapture);
+void SDL_IMMDevice_EnumerateEndpoints(SDL_bool useguid);
+int SDL_IMMDevice_GetDefaultAudioInfo(char **name, SDL_AudioSpec *spec, int iscapture);
 
-#endif /* SDL_ime_h_ */
+SDL_AudioFormat WaveFormatToSDLFormat(WAVEFORMATEX *waveformat);
 
-/* vi: set ts=4 sw=4 expandtab: */
+/* these increment as default devices change. Opened default devices pick up changes in their threads. */
+extern SDL_atomic_t SDL_IMMDevice_DefaultPlaybackGeneration;
+extern SDL_atomic_t SDL_IMMDevice_DefaultCaptureGeneration;
+
+#endif /* SDL_IMMDEVICE_H */
