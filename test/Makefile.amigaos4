@@ -113,7 +113,9 @@ testautomation: testautomation.o \
 		      testautomation_syswm.o \
 		      testautomation_timer.o \
 		      testautomation_video.o \
-		      testautomation_hints.o
+		      testautomation_hints.o \
+		      testautomation_guid.o \
+		      testautomation_math.o
 	$(CC) -o $@ $^ $(LIBS) 
 
 testmultiaudio: testmultiaudio.o testutils.o
