@@ -468,7 +468,7 @@ OS4_SetFunctionPointers(SDL_VideoDevice * device)
 }
 
 static SDL_VideoDevice *
-OS4_CreateDevice(int devindex)
+OS4_CreateDevice(void)
 {
     SDL_VideoDevice *device;
     SDL_VideoData *data;
