@@ -33,6 +33,8 @@ link_libraries(
         SDL2_test
         SDL2-static
         patches
+        gskit
+        dmakit
         ps2_drivers
 )
 else()
@@ -116,7 +118,7 @@ if(APPLE)
                               testutils.c)
 elseif(WINDOWS)
     add_executable(testnative testnative.c testnativew32.c testutils.c)
-elseif(SDL_X11)
+elseif(HAVE_X11)
     add_executable(testnative testnative.c testnativex11.c testutils.c)
     target_link_libraries(testnative X11)
 endif()
@@ -313,7 +315,7 @@ else()
         teststreaming
         testviewport
     )
-    if(WINDOWS OR APPLE OR SDL_X11)
+    if(WINDOWS OR APPLE OR HAVE_X11)
         list(APPEND NEEDS_RESOURCES testnative)
     endif()
 endif()

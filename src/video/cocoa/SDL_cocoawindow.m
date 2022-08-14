@@ -935,8 +935,6 @@ Cocoa_UpdateClipCursor(SDL_Window * window)
 - (void)windowDidEnterFullScreen:(NSNotification *)aNotification
 {
     SDL_Window *window = _data.window;
-    SDL_WindowData *data = (__bridge SDL_WindowData *) window->driverdata;
-    NSWindow *nswindow = data.nswindow;
 
     inFullscreenTransition = NO;
 
@@ -944,11 +942,6 @@ Cocoa_UpdateClipCursor(SDL_Window * window)
         pendingWindowOperation = PENDING_OPERATION_NONE;
         [self setFullscreenSpace:NO];
     } else {
-        /* Unset the resizable flag. 
-           This is a workaround for https://bugzilla.libsdl.org/show_bug.cgi?id=3697
-         */
-        SetWindowStyle(window, [nswindow styleMask] & (~NSWindowStyleMaskResizable));
-
         if ((window->flags & SDL_WINDOW_FULLSCREEN_DESKTOP) == SDL_WINDOW_FULLSCREEN_DESKTOP) {
             [NSMenu setMenuBarVisible:NO];
         }
@@ -1364,26 +1357,39 @@ Cocoa_SendMouseButtonClicks(SDL_Mouse * mouse, NSEvent *theEvent, SDL_Window * w
     Cocoa_HandleMouseWheel(_data.window, theEvent);
 }
 
+
+- (BOOL)isTouchFromTrackpad:(NSEvent *)theEvent
+{
+    SDL_Window *window = _data.window;
+    SDL_VideoData *videodata = ((__bridge SDL_WindowData *) window->driverdata).videodata;
+
+    /* if this a MacBook trackpad, we'll make input look like a synthesized
+       event. This is backwards from reality, but better matches user
+       expectations. You can make it look like a generic touch device instead
+       with the SDL_HINT_TRACKPAD_IS_TOUCH_ONLY hint. */
+    BOOL istrackpad = NO;
+    if (!videodata.trackpad_is_touch_only) {
+        @try {
+            istrackpad = ([theEvent subtype] == NSEventSubtypeMouseEvent);
+        }
+        @catch (NSException *e) {
+            /* if NSEvent type doesn't have subtype, such as NSEventTypeBeginGesture on
+             * macOS 10.5 to 10.10, then NSInternalInconsistencyException is thrown.
+             * This still prints a message to terminal so catching it's not an ideal solution.
+             *
+             * *** Assertion failure in -[NSEvent subtype]
+             */
+        }
+    }
+    return istrackpad;
+}
+
 - (void)touchesBeganWithEvent:(NSEvent *) theEvent
 {
     NSSet *touches;
     SDL_TouchID touchID;
     int existingTouchCount;
-
-    /* probably a MacBook trackpad; make this look like a synthesized event.
-       This is backwards from reality, but better matches user expectations. */
-    BOOL istrackpad = NO;
-    @try {
-        istrackpad = ([theEvent subtype] == NSEventSubtypeMouseEvent);
-    }
-    @catch (NSException *e) {
-        /* if NSEvent type doesn't have subtype, such as NSEventTypeBeginGesture on
-         * macOS 10.5 to 10.10, then NSInternalInconsistencyException is thrown.
-         * This still prints a message to terminal so catching it's not an ideal solution.
-         *
-         * *** Assertion failure in -[NSEvent subtype]
-         */
-    }
+    const BOOL istrackpad = [self isTouchFromTrackpad:theEvent];
 
     touches = [theEvent touchesMatchingPhase:NSTouchPhaseAny inView:nil];
     touchID = istrackpad ? SDL_MOUSE_TOUCHID : (SDL_TouchID)(intptr_t)[[touches anyObject] device];
@@ -1431,23 +1437,9 @@ Cocoa_SendMouseButtonClicks(SDL_Mouse * mouse, NSEvent *theEvent, SDL_Window * w
 - (void)handleTouches:(NSTouchPhase) phase withEvent:(NSEvent *) theEvent
 {
     NSSet *touches = [theEvent touchesMatchingPhase:phase inView:nil];
+    const BOOL istrackpad = [self isTouchFromTrackpad:theEvent];
     SDL_FingerID fingerId;
     float x, y;
-
-    /* probably a MacBook trackpad; make this look like a synthesized event.
-       This is backwards from reality, but better matches user expectations. */
-    BOOL istrackpad = NO;
-    @try {
-        istrackpad = ([theEvent subtype] == NSEventSubtypeMouseEvent);
-    }
-    @catch (NSException *e) {
-        /* if NSEvent type doesn't have subtype, such as NSEventTypeBeginGesture on
-         * macOS 10.5 to 10.10, then NSInternalInconsistencyException is thrown.
-         * This still prints a message to terminal so catching it's not an ideal solution.
-         *
-         * *** Assertion failure in -[NSEvent subtype]
-         */
-    }
 
     for (NSTouch *touch in touches) {
         const SDL_TouchID touchId = istrackpad ? SDL_MOUSE_TOUCHID : (SDL_TouchID)(intptr_t)[touch device];
@@ -1615,6 +1607,7 @@ SetupWindowData(_THIS, SDL_Window * window, NSWindow *nswindow, NSView *nsview, 
     data.nswindow = nswindow;
     data.created = created;
     data.videodata = videodata;
+    data.window_number = nswindow.windowNumber;
     data.nscontexts = [[NSMutableArray alloc] init];
     data.sdlContentView = nsview;
 
@@ -2230,34 +2223,37 @@ int
 Cocoa_GetWindowDisplayIndex(_THIS, SDL_Window * window)
 { @autoreleasepool
 {
-    NSRect displayframe;
-    SDL_Point display_center;
-    SDL_Rect sdl_display_rect;
+    NSScreen *screen;
     SDL_WindowData *data = (__bridge SDL_WindowData *) window->driverdata;
 
     /* Not recognized via CHECK_WINDOW_MAGIC */
-    if (data == NULL){
-        return 0;
+    if (data == nil) {
+        return SDL_SetError("Window data not set");
     }
 
-    /*
-     Considering that we already have the display coordinates in which the window is placed (described via displayframe)
-     instead of checking in which display the window is placed, we should check which SDL display matches the display described
-     via displayframe.
-    */
-    displayframe = data.nswindow.screen.frame;
-    
-    display_center.x = displayframe.origin.x + displayframe.size.width / 2;
-    display_center.y = displayframe.origin.y + displayframe.size.height / 2;
-    
-    for (int i = 0; i < SDL_GetNumVideoDisplays(); i++){
-        SDL_GetDisplayBounds(i, &sdl_display_rect);
-        if (SDL_EnclosePoints(&display_center, 1, &sdl_display_rect, NULL)) {
-            return i;
+    /* NSWindow.screen may be nil when the window is off-screen. */
+    screen = data.nswindow.screen;
+
+    if (screen != nil) {
+        CGDirectDisplayID displayid;
+        int i;
+
+        /* https://developer.apple.com/documentation/appkit/nsscreen/1388360-devicedescription?language=objc */
+        displayid = [[screen.deviceDescription objectForKey:@"NSScreenNumber"] unsignedIntValue];
+
+        for (i = 0; i < _this->num_displays; i++) {
+            SDL_DisplayData *displaydata = (SDL_DisplayData *)_this->displays[i].driverdata;
+            if (displaydata != NULL && displaydata->display == displayid) {
+                return i;
+            }
         }
     }
-    SDL_SetError("Couldn't find the display where the window is attached to.");
-    return -1;
+
+    /* Other code may expect SDL_GetWindowDisplayIndex to always return a valid
+     * index for a window. The higher level GetWindowDisplayIndex code will fall
+     * back to a generic position-based query if the backend implementation
+     * fails. */
+    return SDL_SetError("Couldn't find the display where the window is located.");
 }}
 
 int

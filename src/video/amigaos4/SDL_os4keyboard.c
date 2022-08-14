@@ -80,7 +80,7 @@ OS4_UpdateKeymap(_THIS)
         keymap[scancode] = OS4_MapRawKey(_this, i);
     }
 
-    SDL_SetKeymap(0, keymap, SDL_NUM_SCANCODES);
+    SDL_SetKeymap(0, keymap, SDL_NUM_SCANCODES, SDL_FALSE);
 }
 
 int

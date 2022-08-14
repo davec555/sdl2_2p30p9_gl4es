@@ -621,29 +621,6 @@ WIN_KeyboardHookProc(int nCode, WPARAM wParam, LPARAM lParam)
     return 1;
 }
 
-static void WIN_CheckICMProfileChanged(SDL_Window* window)
-{
-    SDL_VideoDisplay* display = SDL_GetDisplayForWindow(window);
-    SDL_DisplayData* data = (SDL_DisplayData*)display->driverdata;
-    static WCHAR currentIcmFileName[MAX_PATH] = { '\0' };
-    WCHAR icmFileName[MAX_PATH];
-    HDC hdc;
-    SDL_bool succeeded;
-    DWORD fileNameSize = MAX_PATH;
-
-    hdc = CreateDCW(data->DeviceName, NULL, NULL, NULL);
-    if (hdc) {
-        succeeded = GetICMProfileW(hdc, &fileNameSize, icmFileName);
-        DeleteDC(hdc);
-        if (succeeded) {
-            
-            if (SDL_wcsncmp(currentIcmFileName, icmFileName, fileNameSize)) {
-                SDL_wcslcpy(currentIcmFileName, icmFileName, fileNameSize);
-                SDL_SendWindowEvent(window, SDL_WINDOWEVENT_ICCPROF_CHANGED, 0, 0);
-            }
-        }
-    }
-}
 #endif /*!defined(__XBOXONE__) && !defined(__XBOXSERIES__)*/
 
 LRESULT CALLBACK
@@ -716,7 +693,7 @@ WIN_WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                actually being the foreground window, but this appears to get called in all cases where
                the global foreground window changes to and from this window. */
             WIN_UpdateFocus(data->window, !!wParam);
-            WIN_CheckICMProfileChanged(data->window);
+            WIN_UpdateWindowICCProfile(data->window, SDL_TRUE);
         }
         break;
 
@@ -1044,8 +1021,7 @@ WIN_WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 #ifdef WM_INPUTLANGCHANGE
     case WM_INPUTLANGCHANGE:
         {
-            WIN_UpdateKeymap();
-            SDL_SendKeymapChangedEvent();
+            WIN_UpdateKeymap(SDL_TRUE);
         }
         returnCode = 1;
         break;
@@ -1192,6 +1168,11 @@ WIN_WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 break;
             }
 
+            /* When the window is minimized it's resized to the dock icon size, ignore this */
+            if ((data->window->flags & SDL_WINDOW_MINIMIZED) != 0) {
+                break;
+            }
+
             if (!GetClientRect(hwnd, &rect) || IsRectEmpty(&rect)) {
                 break;
             }
@@ -1222,7 +1203,7 @@ WIN_WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             /* Forces a WM_PAINT event */
             InvalidateRect(hwnd, NULL, FALSE);
 
-            WIN_CheckICMProfileChanged(data->window);
+            WIN_UpdateWindowICCProfile(data->window, SDL_TRUE);
         }
         break;
 
@@ -1567,7 +1548,14 @@ WIN_WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     data->scaling_dpi = newDPI;
 
                     /* Send a SDL_WINDOWEVENT_SIZE_CHANGED saying that the client size (in dpi-scaled points) is unchanged.
-                       Renderers need to get this to know that the framebuffer size changed. */
+                       Renderers need to get this to know that the framebuffer size changed.
+
+                       We clear the window size to force the event to be delivered, but what we really
+                       want for SDL3 is a new event to notify that the DPI changed and then watch for
+                       that in the renderer directly.
+                     */
+                    data->window->w = 0;
+                    data->window->h = 0;
                     SDL_SendWindowEvent(data->window, SDL_WINDOWEVENT_SIZE_CHANGED, data->window->w, data->window->h);
                 }
 
