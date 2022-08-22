@@ -210,6 +210,7 @@ extern AudioBootStrap PS2AUDIO_bootstrap;
 extern AudioBootStrap PSPAUDIO_bootstrap;
 extern AudioBootStrap VITAAUD_bootstrap;
 extern AudioBootStrap EMSCRIPTENAUDIO_bootstrap;
+extern AudioBootStrap AMIGAOS4AUDIO_bootstrap;
 extern AudioBootStrap OS2AUDIO_bootstrap;
 
 #endif /* SDL_sysaudio_h_ */
