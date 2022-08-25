@@ -1,8 +1,8 @@
 failat 21
 
 echo Copying shared object ...
-copy SDK/local/newlib/lib/libSDL2-2.0.so SObjs:
-copy SDK/local/newlib/lib/libSDL2-2.0_debug.so SObjs:
+copy SDK/local/newlib/lib/libSDL2-2.24.so SObjs:
+copy SDK/local/newlib/lib/libSDL2-2.24_debug.so SObjs:
 
 echo Copying prefs program ...
 copy SDL2 SDL2.info SYS:Prefs/
@@ -16,7 +16,7 @@ If $option eq 1
   protect SDK:local/newlib/bin/sdl2-config +rweds
 
   cd SDK:local/newlib/lib
-  makelink from=libSDL2.so to=libSDL2-2.0.so soft
+  makelink from=libSDL2.so to=libSDL2-2.24.so soft
 Else
   echo Skipped SDK installation ...
 EndIf
@@ -24,7 +24,7 @@ EndIf
 echo Setting up link ...
 
 cd SObjs:
-makelink >NIL: from=libSDL2.so to=libSDL2-2.0.so soft
+makelink >NIL: from=libSDL2.so to=libSDL2-2.24.so soft
 
 echo SDL2 is installed :)
 
