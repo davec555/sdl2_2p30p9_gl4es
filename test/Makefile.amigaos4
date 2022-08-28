@@ -99,8 +99,12 @@ testautomation: testautomation.o \
 		      testautomation_audio.o \
 		      testautomation_clipboard.o \
 		      testautomation_events.o \
+		      testautomation_guid.o \
+		      testautomation_hints.o \
+		      testautomation_joystick.o \
 		      testautomation_keyboard.o \
 		      testautomation_main.o \
+		      testautomation_math.o \
 		      testautomation_mouse.o \
 		      testautomation_pixels.o \
 		      testautomation_platform.o \
@@ -112,10 +116,7 @@ testautomation: testautomation.o \
 		      testautomation_surface.o \
 		      testautomation_syswm.o \
 		      testautomation_timer.o \
-		      testautomation_video.o \
-		      testautomation_hints.o \
-		      testautomation_guid.o \
-		      testautomation_math.o
+		      testautomation_video.o
 	$(CC) -o $@ $^ $(LIBS) 
 
 testmultiaudio: testmultiaudio.o testutils.o
