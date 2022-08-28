@@ -1,5 +1,5 @@
 ================================================================================
-SDL 2.0 requirements
+SDL 2 requirements
 ================================================================================
 
 AmigaOS 4.1 Final Edition
@@ -8,7 +8,7 @@ MiniGL (optional from SDL2 point of view, but OpenGL context might still be
 OpenGL ES 2.0 (optional)
 
 ================================================================================
-Building SDL 2.0 library
+Building SDL 2 library
 ================================================================================
 
     gmake -f Makefile.amigaos4
@@ -16,7 +16,7 @@ Building SDL 2.0 library
     At the moment configure script and CMake are not supported.
 
 ================================================================================
-Using SDL 2.0 in your projects
+Using SDL 2 in your projects
 ================================================================================
 
     #include "SDL2/SDL.h"
@@ -84,6 +84,13 @@ setenv SDL_RENDER_VSYNC 0 # Disable
 
 It must be noted that these variables apply only to those applications that
 actually use the SDL_Renderer subsystem, and not 3D games.
+
+Screensaver control:
+
+setenv SDL_VIDEO_ALLOW_SCREENSAVER 1 # Enable
+setenv SDL_VIDEO_ALLOW_SCREENSAVER 0 # Disable
+
+Please check also SDL2 preferences program.
 
 ================================================================================
 About OpenGL
