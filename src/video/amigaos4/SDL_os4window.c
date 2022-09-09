@@ -675,6 +675,11 @@ OS4_CloseWindow(_THIS, SDL_Window * sdlwin)
 {
     SDL_WindowData *data = sdlwin->driverdata;
 
+    if (!data) {
+        dprintf("data is NULL\n");
+        return;
+    }
+
     OS4_RemoveAppWindow(_this, data);
     OS4_RemoveAppIcon(_this, data);
 
@@ -695,7 +700,7 @@ OS4_CloseWindow(_THIS, SDL_Window * sdlwin)
             data->image = NULL;
         }
     } else {
-        dprintf("NULL pointer\n");
+        dprintf("syswin is NULL\n");
     }
 }
 
@@ -827,6 +832,11 @@ OS4_DestroyWindow(_THIS, SDL_Window * window)
     SDL_WindowData *data = window->driverdata;
 
     dprintf("Called for '%s' (flags 0x%X)\n", window->title, window->flags);
+
+    if (!data) {
+        dprintf("data is NULL\n");
+        return;
+    }
 
     if (data->syswin) {
         if (!(window->flags & SDL_WINDOW_FOREIGN)) {
