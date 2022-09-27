@@ -40,6 +40,7 @@ TARGETS = \
 	testjoystick \
 	testkeys \
 	testloadso \
+	testlocale \
 	testlock \
 	testmessage \
 	testmultiaudio \
@@ -198,6 +199,9 @@ testkeys: testkeys.o
 	$(CC) -o $@ $^ $(LIBS)
 
 testloadso: testloadso.o
+	$(CC) -o $@ $^ $(LIBS)
+
+testlocale: testlocale.o
 	$(CC) -o $@ $^ $(LIBS)
 
 testlock: testlock.o
