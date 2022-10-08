@@ -965,6 +965,8 @@ static const char *s_ControllerMappings [] =
     "4c6f6769746563682052756d626c6550,Logitech RumblePad 2 USB,platform:AmigaOS 4,a:b1,b:b2,x:b0,y:b3,back:b8,start:b9,leftstick:b10,rightstick:b11,leftshoulder:b4,rightshoulder:b5,dpup:h0.1,dpdown:h0.4,dpleft:h0.8,dpright:h0.2,leftx:a0,lefty:a1,rightx:a2,righty:a3,lefttrigger:b6,righttrigger:b7,",
     "4c6f6769746563682852292050726563,Logitech(R) Precision(TM) Gamepad,platform:AmigaOS 4,a:b1,b:b2,x:b0,y:b3,back:b8,start:b9,leftshoulder:b4,rightshoulder:b5,dpup:-a1,dpdown:+a1,dpleft:-a0,dpright:+a0,lefttrigger:b6,righttrigger:b7,",
     "4c6f676974656368204475616c204163,Logitech Dual Action,platform:AmigaOS 4,a:b1,b:b2,x:b0,y:b3,back:b8,start:b9,leftstick:b10,rightstick:b11,leftshoulder:b4,rightshoulder:b5,-leftx:h0.8,+leftx:h0.2,-lefty:h0.1,+lefty:h0.4,lefttrigger:b6,righttrigger:b7,",
+    "4d4159464c4153482041726361646520,MAYFLASH Arcade Fightstick F300,platform:AmigaOS 4,a:b0,b:b1,x:b3,y:b4,back:b10,guide:b11,start:b12,leftshoulder:b6,rightshoulder:b7,dpup:-a1,dpdown:+a1,dpleft:-a0,dpright:+a0,lefttrigger:b8,righttrigger:b9,",
+    "47616d6520436f6e74726f6c6c657220,Game Controller for Android,platform:AmigaOS 4,a:b3,b:b0,x:b4,y:b1,dpup:-a1,dpdown:+a1,dpleft:-a0,dpright:+a0,",
 #endif
 #if defined(SDL_JOYSTICK_VITA)
     "50535669746120436f6e74726f6c6c65,PSVita Controller,a:b2,b:b1,back:b10,dpdown:b6,dpleft:b7,dpright:b9,dpup:b8,leftshoulder:b4,leftstick:b14,lefttrigger:a4,leftx:a0,lefty:a1,rightshoulder:b5,rightstick:b15,righttrigger:a5,rightx:a2,righty:a3,start:b11,x:b3,y:b0,",
