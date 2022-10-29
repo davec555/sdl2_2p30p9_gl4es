@@ -33,7 +33,6 @@
 #include <proto/ogles2.h>
 #include <GLES2/gl2.h>
 
-#define DEBUG
 #include "../../main/amigaos4/SDL_os4debug.h"
 
 static struct Library *OGLES2base;

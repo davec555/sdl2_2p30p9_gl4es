@@ -25,7 +25,6 @@
 #include "SDL_os4video.h"
 #include "SDL_os4modes.h"
 
-#define DEBUG
 #include "../../main/amigaos4/SDL_os4debug.h"
 
 static SDL_bool

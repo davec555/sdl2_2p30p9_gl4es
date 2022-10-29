@@ -29,7 +29,6 @@
 #include "SDL_os4window.h"
 #include "SDL_os4library.h"
 
-#define DEBUG
 #include "../../main/amigaos4/SDL_os4debug.h"
 
 #define BUTTON_BUF_SIZE 1024

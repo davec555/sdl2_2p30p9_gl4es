@@ -42,7 +42,6 @@
 #include "../../events/SDL_keyboard_c.h"
 #include "../../events/SDL_events_c.h"
 
-#define DEBUG
 #include "../../main/amigaos4/SDL_os4debug.h"
 
 #define MIN_WINDOW_SIZE 100

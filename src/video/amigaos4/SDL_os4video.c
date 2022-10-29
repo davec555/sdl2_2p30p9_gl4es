@@ -45,7 +45,6 @@
 #include "SDL_os4keyboard.h"
 #include "SDL_os4library.h"
 
-#define DEBUG
 #include "../../main/amigaos4/SDL_os4debug.h"
 
 #define OS4VID_DRIVER_NAME "os4"

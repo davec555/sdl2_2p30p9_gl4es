@@ -18,7 +18,6 @@
   3. This notice may not be removed or altered from any source distribution.
 */
 
-#define DEBUG
 #include "../src/main/amigaos4/SDL_os4debug.h"
 
 #include "../include/SDL_hints.h"

@@ -31,7 +31,6 @@
 #include "SDL_hints.h"
 #include "../../events/SDL_mouse_c.h"
 
-#define DEBUG
 #include "../../main/amigaos4/SDL_os4debug.h"
 
 #include <devices/input.h>

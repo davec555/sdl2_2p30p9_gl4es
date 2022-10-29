@@ -8,10 +8,22 @@ MiniGL (optional from SDL2 point of view, but OpenGL context might still be
 OpenGL ES 2.0 (optional)
 
 ================================================================================
+Installation
+================================================================================
+
+There is an installer script that can be used to install shared objects, prefs
+program and the SDK. Many current SDL2 applications are linked statically but
+there are some apps like RebelSDL (Hollywood) that use SDL2 as a shared object.
+
+================================================================================
 Building SDL 2 library
 ================================================================================
 
-    gmake -f Makefile.amigaos4
+    # non-debug variant
+    gmake -f Makefile.amigaos4    
+
+    # with serial debug prints
+    gmake -f Makefile.amigaos4 debug    
 
     At the moment configure script and CMake are not supported.
 

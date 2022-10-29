@@ -26,7 +26,6 @@
 #include "SDL_os4framebuffer.h"
 #include "SDL_os4window.h"
 
-#define DEBUG
 #include "../../main/amigaos4/SDL_os4debug.h"
 
 static Uint32

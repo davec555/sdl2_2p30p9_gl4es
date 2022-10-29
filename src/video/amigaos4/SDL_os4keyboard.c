@@ -28,7 +28,6 @@
 #include "../../events/SDL_keyboard_c.h"
 #include "../../events/scancodes_amiga.h"
 
-#define DEBUG
 #include "../../main/amigaos4/SDL_os4debug.h"
 
 static SDL_Keycode

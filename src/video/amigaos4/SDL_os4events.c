@@ -37,7 +37,7 @@
 #include "../../events/scancodes_amiga.h"
 #include "../../events/SDL_events_c.h"
 
-//#define DEBUG
+#undef DEBUG
 #include "../../main/amigaos4/SDL_os4debug.h"
 
 extern SDL_bool (*OS4_ResizeGlContext)(_THIS, SDL_Window * window);
