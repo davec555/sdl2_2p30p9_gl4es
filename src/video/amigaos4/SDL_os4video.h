@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2022 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -41,6 +41,7 @@
 typedef struct
 {
     STRPTR                  appName;
+    uint32                  appId;
 
     struct Screen          *publicScreen;
 
@@ -60,6 +61,7 @@ typedef struct
     struct Library          *keymapbase;
     struct Library          *textclipbase;
     struct Library          *dosbase;
+    struct Library          *applicationbase;
 
     struct GraphicsIFace    *iGraphics;
     struct LayersIFace      *iLayers;
@@ -70,6 +72,7 @@ typedef struct
     struct TextClipIFace    *iTextClip;
     struct InputIFace       *iInput;
     struct DOSIFace         *iDos;
+    struct ApplicationIFace *iApplication;
 
     BOOL                    vsyncEnabled;
 } SDL_VideoData;
@@ -82,6 +85,7 @@ typedef struct
 #define KeymapBase ((SDL_VideoData *) _this->driverdata)->keymapbase
 #define TextClipBase ((SDL_VideoData *) _this->driverdata)->textclipbase
 #define DOSBase ((SDL_VideoData *) _this->driverdata)->dosbase
+#define ApplicationBase ((SDL_VideoData *) _this->driverdata)->applicationbase
 
 #define IGraphics ((SDL_VideoData *) _this->driverdata)->iGraphics
 #define ILayers ((SDL_VideoData *) _this->driverdata)->iLayers
@@ -92,6 +96,7 @@ typedef struct
 #define ITextClip ((SDL_VideoData *) _this->driverdata)->iTextClip
 #define IInput ((SDL_VideoData *) _this->driverdata)->iInput
 #define IDOS ((SDL_VideoData *) _this->driverdata)->iDos
+#define IApplication ((SDL_VideoData *) _this->driverdata)->iApplication
 
 extern void * OS4_SaveAllocPooled(_THIS, uint32 size);
 extern void * OS4_SaveAllocVecPooled(_THIS, uint32 size);

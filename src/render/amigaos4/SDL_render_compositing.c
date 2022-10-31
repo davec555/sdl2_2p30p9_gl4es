@@ -36,7 +36,6 @@
 #include <proto/layers.h>
 #include <intuition/intuition.h>
 
-#define DEBUG
 #include "../../main/amigaos4/SDL_os4debug.h"
 
 /* AmigaOS4 (compositing) renderer implementation

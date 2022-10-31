@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2022 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -23,13 +23,10 @@
 
 #include <proto/exec.h>
 
-#ifndef DEBUG
-# define dprintf(format, args...)
-# define kprintf(format, args...)
-#else /* DEBUG */
+#ifdef DEBUG
 # define dprintf(format, args...) IExec->DebugPrintF("[%s] " format, __PRETTY_FUNCTION__ , ## args)
-//# define dprintf(format, args...)((struct ExecIFace *)((*(struct ExecBase **)4)->MainInterface))->DebugPrintF("[%s] " format, __PRETTY_FUNCTION__ , ## args)
-# define kprintf(format, args...)((struct ExecIFace *)((*(struct ExecBase **)4)->MainInterface))->DebugPrintF(format, ## args)
-#endif /* DEBUG */
+#else
+# define dprintf(format, args...)
+#endif
 
 #endif /* SDL_OS4DEBUG_H */

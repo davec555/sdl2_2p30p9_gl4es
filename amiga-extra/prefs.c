@@ -18,8 +18,9 @@
   3. This notice may not be removed or altered from any source distribution.
 */
 
-#define DEBUG
 #include "../src/main/amigaos4/SDL_os4debug.h"
+
+#include "../include/SDL_hints.h"
 
 #include <proto/dos.h>
 #include <proto/exec.h>
@@ -42,7 +43,7 @@
 #include <string.h>
 
 #define NAME "SDL2 Prefs"
-#define VERSION "1.3"
+#define VERSION "1.4"
 #define MAX_PATH_LEN 1024
 #define MAX_VARIABLE_NAME_LEN 32
 
@@ -71,6 +72,7 @@ enum EGadgetID
     GID_BatchingList,
     GID_ScaleQualityList,
     GID_LogicalSizeModeList,
+    GID_ScreenSaverList,
     GID_SaveButton,
     GID_ResetButton,
     GID_CancelButton
@@ -134,6 +136,14 @@ static const struct OptionName logicalSizeModeNames[] =
     { NULL, NULL, NULL }
 };
 
+static const struct OptionName screenSaverNames[] =
+{
+    { "default", NULL, NULL },
+    { "enabled", "1", NULL },
+    { "disabled", "0", NULL },
+    { NULL, NULL, NULL }
+};
+
 struct Variable
 {
     const enum EGadgetID gid;
@@ -145,11 +155,12 @@ struct Variable
     const struct OptionName* const names;
 };
 
-static struct Variable driverVar = { GID_DriverList, 0, "SDL_RENDER_DRIVER", "", NULL, NULL, driverNames };
-static struct Variable vsyncVar = { GID_VsyncList, 0, "SDL_RENDER_VSYNC", "", NULL, NULL, vsyncNames };
-static struct Variable batchingVar = { GID_BatchingList, 0, "SDL_RENDER_BATCHING", "", NULL, NULL, batchingNames };
-static struct Variable scaleQualityVar = { GID_ScaleQualityList, 0, "SDL_RENDER_SCALE_QUALITY", "", NULL, NULL, scaleQualityNames };
-static struct Variable logicalSizeModeVar = { GID_LogicalSizeModeList, 0, "SDL_RENDER_LOGICAL_SIZE_MODE", "", NULL, NULL, logicalSizeModeNames };
+static struct Variable driverVar = { GID_DriverList, 0, SDL_HINT_RENDER_DRIVER, "", NULL, NULL, driverNames };
+static struct Variable vsyncVar = { GID_VsyncList, 0, SDL_HINT_RENDER_VSYNC, "", NULL, NULL, vsyncNames };
+static struct Variable batchingVar = { GID_BatchingList, 0, SDL_HINT_RENDER_BATCHING, "", NULL, NULL, batchingNames };
+static struct Variable scaleQualityVar = { GID_ScaleQualityList, 0, SDL_HINT_RENDER_SCALE_QUALITY, "", NULL, NULL, scaleQualityNames };
+static struct Variable logicalSizeModeVar = { GID_LogicalSizeModeList, 0, SDL_HINT_RENDER_LOGICAL_SIZE_MODE, "", NULL, NULL, logicalSizeModeNames };
+static struct Variable screenSaverVar = { GID_ScreenSaverList, 0, SDL_HINT_VIDEO_ALLOW_SCREENSAVER, "", NULL, NULL, screenSaverNames };
 
 static char*
 GetVariable(const char* const name)
@@ -220,6 +231,7 @@ LoadVariables()
     LoadVariable(&batchingVar);
     LoadVariable(&scaleQualityVar);
     LoadVariable(&logicalSizeModeVar);
+    LoadVariable(&screenSaverVar);
 }
 
 static void
@@ -240,6 +252,7 @@ SaveVariables()
     SaveOrDeleteVariable(&batchingVar);
     SaveOrDeleteVariable(&scaleQualityVar);
     SaveOrDeleteVariable(&logicalSizeModeVar);
+    SaveOrDeleteVariable(&screenSaverVar);
 }
 
 static BOOL
@@ -424,6 +437,13 @@ CreateLogicalSizeModeButtons()
 }
 
 static Object*
+CreateScreenSaverButtons()
+{
+    return CreateChooserButtons(&screenSaverVar, "allow screensaver",
+        "Allow screensaver (disabled by default)");
+}
+
+static Object*
 CreateButton(enum EGadgetID gid, const char* const name, const char* const hint)
 {
     dprintf("gid %d, name '%s', hint '%s'\n", gid, name, hint);
@@ -445,7 +465,7 @@ CreateButton(enum EGadgetID gid, const char* const name, const char* const hint)
 static Object*
 CreateSaveButton()
 {
-    return CreateButton(GID_SaveButton, "_Save", "Store settings to ENVARC:");
+    return CreateButton(GID_SaveButton, "_Save", "Store settings to ENVARC: and exit");
 }
 
 static Object*
@@ -461,53 +481,106 @@ CreateCancelButton()
 }
 
 static Object*
+CreateLabel(const char* const name)
+{
+    Object* l = IIntuition->NewObject(LabelClass, NULL,
+        LABEL_Text, name,
+        TAG_DONE);
+
+    if (!l) {
+        dprintf("Failed to create '%s' label\n", name);
+    }
+
+    return l;
+}
+
+static Object*
+CreateRendererLayout()
+{
+    Object* layout = IIntuition->NewObject(LayoutClass, NULL,
+        LAYOUT_Orientation, LAYOUT_ORIENT_HORIZ,
+        LAYOUT_BevelStyle, BVS_GROUP,
+        LAYOUT_Label, "2D Renderer Options",
+        LAYOUT_AddChild, IIntuition->NewObject(LayoutClass, NULL,
+            LAYOUT_HorizAlignment, LALIGN_CENTER,
+            LAYOUT_AddChild, IIntuition->NewObject(LayoutClass, NULL,
+                LAYOUT_Orientation, LAYOUT_ORIENT_VERT,
+                LAYOUT_AddChild, CreateDriverButtons(),
+                CHILD_Label, CreateLabel("_Driver"),
+                LAYOUT_AddChild, CreateVsyncButtons(),
+                CHILD_Label, CreateLabel("_Vertical Sync"),
+                LAYOUT_AddChild, CreateBatchingButtons(),
+                CHILD_Label, CreateLabel("_Batching Mode"),
+                LAYOUT_AddChild, CreateScaleQualityButtons(),
+                CHILD_Label, CreateLabel("Scale _Quality"),
+                LAYOUT_AddChild, CreateLogicalSizeModeButtons(),
+                CHILD_Label, CreateLabel("_Logical Size Mode"),
+                TAG_DONE), // vertical layout
+                CHILD_WeightedWidth, 0,
+            TAG_DONE),
+        TAG_DONE); // horizontal layout
+
+    if (!layout) {
+        dprintf("Failed to create renderer layout\n");
+    }
+
+    return layout;
+}
+
+static Object*
+CreateVideoLayout()
+{
+    Object* layout = IIntuition->NewObject(LayoutClass, NULL,
+        LAYOUT_Orientation, LAYOUT_ORIENT_HORIZ,
+        LAYOUT_BevelStyle, BVS_GROUP,
+        LAYOUT_Label, "Video Options",
+        LAYOUT_AddChild, IIntuition->NewObject(LayoutClass, NULL,
+            LAYOUT_HorizAlignment, LALIGN_CENTER,
+            LAYOUT_AddChild, IIntuition->NewObject(LayoutClass, NULL,
+                LAYOUT_Orientation, LAYOUT_ORIENT_VERT,
+                LAYOUT_AddChild, CreateScreenSaverButtons(),
+                CHILD_Label, CreateLabel("_Allow Screen Saver"),
+                TAG_DONE), // vertical layout
+                CHILD_WeightedWidth, 0,
+            TAG_DONE),
+        TAG_DONE); // horizontal layout
+
+    if (!layout) {
+        dprintf("Failed to create video layout\n");
+    }
+
+    return layout;
+}
+
+static Object*
+CreateSettingsLayout()
+{
+    Object* layout = IIntuition->NewObject(LayoutClass, NULL,
+        LAYOUT_Orientation, LAYOUT_ORIENT_HORIZ,
+        LAYOUT_BevelStyle, BVS_GROUP,
+        LAYOUT_Label, "Settings",
+        LAYOUT_AddChild, CreateSaveButton(),
+        LAYOUT_AddChild, CreateResetButton(),
+        LAYOUT_AddChild, CreateCancelButton(),
+        TAG_DONE); // horizontal layout
+
+    if (!layout) {
+        dprintf("Failed to create settings layout\n");
+    }
+
+    return layout;
+}
+
+static Object*
 CreateLayout()
 {
     dprintf("\n");
 
     Object* layout = IIntuition->NewObject(LayoutClass, NULL,
         LAYOUT_Orientation, LAYOUT_ORIENT_VERT,
-        LAYOUT_AddChild, IIntuition->NewObject(LayoutClass, NULL,
-            LAYOUT_Orientation, LAYOUT_ORIENT_HORIZ,
-            LAYOUT_BevelStyle, BVS_GROUP,
-            LAYOUT_Label, "2D Renderer Options",
-            LAYOUT_AddChild, IIntuition->NewObject(LayoutClass, NULL,
-                LAYOUT_HorizAlignment, LALIGN_CENTER,
-                LAYOUT_AddChild, IIntuition->NewObject(LayoutClass, NULL,
-                    LAYOUT_Orientation, LAYOUT_ORIENT_VERT,
-                    LAYOUT_AddChild, CreateDriverButtons(),
-                    CHILD_Label, IIntuition->NewObject(LabelClass, NULL,
-                        LABEL_Text, "_Driver",
-                    TAG_DONE),
-                    LAYOUT_AddChild, CreateVsyncButtons(),
-                    CHILD_Label, IIntuition->NewObject(LabelClass, NULL,
-                        LABEL_Text, "_Vertical Sync",
-                    TAG_DONE),
-                    LAYOUT_AddChild, CreateBatchingButtons(),
-                    CHILD_Label, IIntuition->NewObject(LabelClass, NULL,
-                        LABEL_Text, "_Batching Mode",
-                    TAG_DONE),
-                    LAYOUT_AddChild, CreateScaleQualityButtons(),
-                    CHILD_Label, IIntuition->NewObject(LabelClass, NULL,
-                        LABEL_Text, "Scale _Quality",
-                    TAG_DONE),
-                    LAYOUT_AddChild, CreateLogicalSizeModeButtons(),
-                    CHILD_Label, IIntuition->NewObject(LabelClass, NULL,
-                        LABEL_Text, "_Logical Size Mode",
-                    TAG_DONE),
-                TAG_DONE),
-                CHILD_WeightedWidth, 0,
-            TAG_DONE),
-
-            TAG_DONE), // horizontal layout
-        LAYOUT_AddChild, IIntuition->NewObject(LayoutClass, NULL,
-            LAYOUT_Orientation, LAYOUT_ORIENT_HORIZ,
-            LAYOUT_BevelStyle, BVS_GROUP,
-            LAYOUT_Label, "Settings",
-            LAYOUT_AddChild, CreateSaveButton(),
-            LAYOUT_AddChild, CreateResetButton(),
-            LAYOUT_AddChild, CreateCancelButton(),
-            TAG_DONE), // horizontal layout
+        LAYOUT_AddChild, CreateRendererLayout(),
+        LAYOUT_AddChild, CreateVideoLayout(),
+        LAYOUT_AddChild, CreateSettingsLayout(),
             CHILD_WeightedHeight, 0,
         TAG_DONE); // vertical main layout
 
@@ -740,8 +813,12 @@ HandleGadgets(enum EGadgetID gid)
         case GID_LogicalSizeModeList:
             ReadSelection(&logicalSizeModeVar);
             break;
+        case GID_ScreenSaverList:
+            ReadSelection(&screenSaverVar);
+            break;
         case GID_SaveButton:
             SaveVariables();
+            running = FALSE;
             break;
         case GID_ResetButton:
             ResetSelection(&driverVar);
@@ -749,6 +826,7 @@ HandleGadgets(enum EGadgetID gid)
             ResetSelection(&batchingVar);
             ResetSelection(&scaleQualityVar);
             ResetSelection(&logicalSizeModeVar);
+            ResetSelection(&screenSaverVar);
             break;
         case GID_CancelButton:
             running = FALSE;
@@ -851,6 +929,7 @@ main(int argc, char** argv)
         PurgeChooserList(batchingVar.list);
         PurgeChooserList(scaleQualityVar.list);
         PurgeChooserList(logicalSizeModeVar.list);
+        PurgeChooserList(screenSaverVar.list);
     }
 
     CloseClasses();

@@ -32,7 +32,6 @@
 #include "../SDL_shape_internals.h"
 #include "SDL_assert.h"
 
-#define DEBUG
 #include "../../main/amigaos4/SDL_os4debug.h"
 
 SDL_WindowShaper*

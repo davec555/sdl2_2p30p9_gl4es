@@ -23,6 +23,7 @@
 #if SDL_VIDEO_DRIVER_AMIGAOS4
 
 #include <proto/exec.h>
+#include <proto/application.h>
 
 #include "SDL_video.h"
 #include "SDL_hints.h"
@@ -44,7 +45,6 @@
 #include "SDL_os4keyboard.h"
 #include "SDL_os4library.h"
 
-#define DEBUG
 #include "../../main/amigaos4/SDL_os4debug.h"
 
 #define OS4VID_DRIVER_NAME "os4"
@@ -70,9 +70,11 @@ OS4_OpenLibraries(_THIS)
     KeymapBase    = OS4_OpenLibrary("keymap.library", MIN_LIB_VERSION);
     TextClipBase  = OS4_OpenLibrary("textclip.library", MIN_LIB_VERSION);
     DOSBase       = OS4_OpenLibrary("dos.library", MIN_LIB_VERSION);
+    ApplicationBase = OS4_OpenLibrary("application.library", 53);
 
     if (GfxBase && LayersBase && IntuitionBase && IconBase &&
-        WorkbenchBase && KeymapBase && TextClipBase && DOSBase) {
+        WorkbenchBase && KeymapBase && TextClipBase && DOSBase &&
+        ApplicationBase) {
 
         IGraphics  = (struct GraphicsIFace *)  OS4_GetInterface(GfxBase);
         ILayers    = (struct LayersIFace *)    OS4_GetInterface(LayersBase);
@@ -82,9 +84,10 @@ OS4_OpenLibraries(_THIS)
         IKeymap    = (struct KeymapIFace *)    OS4_GetInterface(KeymapBase);
         ITextClip  = (struct TextClipIFace *)  OS4_GetInterface(TextClipBase);
         IDOS       = (struct DOSIFace *)       OS4_GetInterface(DOSBase);
+        IApplication = (struct ApplicationIFace *) IExec->GetInterface(ApplicationBase, "application", 2, NULL);
 
         if (IGraphics && ILayers && IIntuition && IIcon &&
-            IWorkbench && IKeymap && ITextClip && IDOS) {
+            IWorkbench && IKeymap && ITextClip && IDOS && IApplication) {
 
             dprintf("All library interfaces OK\n");
 
@@ -105,6 +108,7 @@ OS4_CloseLibraries(_THIS)
 {
     dprintf("Closing libraries\n");
 
+    OS4_DropInterface((void *)&IApplication);
     OS4_DropInterface((void *)&IDOS);
     OS4_DropInterface((void *)&ITextClip);
     OS4_DropInterface((void *)&IKeymap);
@@ -114,6 +118,7 @@ OS4_CloseLibraries(_THIS)
     OS4_DropInterface((void *)&ILayers);
     OS4_DropInterface((void *)&IGraphics);
 
+    OS4_CloseLibrary(&ApplicationBase);
     OS4_CloseLibrary(&DOSBase);
     OS4_CloseLibrary(&TextClipBase);
     OS4_CloseLibrary(&KeymapBase);
@@ -153,6 +158,60 @@ OS4_FindApplicationName(_THIS)
     dprintf("Application name: '%s'\n", data->appName);
 }
 
+static void
+OS4_ConfigureBlanker(_THIS)
+{
+    SDL_VideoData *data = (SDL_VideoData *) _this->driverdata;
+
+    BOOL state = FALSE;
+    const char* hint = SDL_GetHint(SDL_HINT_VIDEO_ALLOW_SCREENSAVER);
+
+    if (hint) {
+        state = atoi(hint) == 1;
+    }
+
+    BOOL result = IApplication->SetApplicationAttrs(data->appId,
+                                                    APPATTR_AllowsBlanker, state,
+                                                    TAG_DONE);
+    if (result) {
+        dprintf("Blanker %s\n", state ? "enabled" : "disabled");
+    } else {
+        dprintf("Failed to configure blanker\n");
+    }
+}
+
+static void
+OS4_RegisterApplication(_THIS)
+{
+    SDL_VideoData *data = (SDL_VideoData *) _this->driverdata;
+
+    data->appId = IApplication->RegisterApplication(data->appName,
+                                                    REGAPP_Description, "SDL2 application",
+                                                    TAG_DONE);
+
+    if (data->appId) {
+        dprintf("Registered application with id %u\n", data->appId);
+        OS4_ConfigureBlanker(_this);
+    } else {
+        dprintf("Failed to register application\n");
+    }
+}
+
+static void
+OS4_UnregisterApplication(_THIS)
+{
+    SDL_VideoData *data = (SDL_VideoData *) _this->driverdata;
+
+    BOOL result = IApplication->UnregisterApplication(data->appId,
+                                                      TAG_DONE);
+
+    if (result) {
+        dprintf("Unregistered application with id %u\n", data->appId);
+    } else {
+        dprintf("Failed to unregister application\n");
+    }
+}
+
 static SDL_bool
 OS4_AllocSystemResources(_THIS)
 {
@@ -165,6 +224,7 @@ OS4_AllocSystemResources(_THIS)
     }
 
     OS4_FindApplicationName(_this);
+    OS4_RegisterApplication(_this);
 
     if (!(data->userPort = IExec->AllocSysObjectTags(ASOT_PORT, TAG_DONE))) {
         SDL_SetError("Couldn't allocate message port");
@@ -270,6 +330,10 @@ OS4_FreeSystemResources(_THIS)
 
     if (data->appName) {
         SDL_free(data->appName);
+    }
+
+    if (data->appId) {
+        OS4_UnregisterApplication(_this);
     }
 
     OS4_CloseLibraries(_this);

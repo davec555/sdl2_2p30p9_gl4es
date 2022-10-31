@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2020 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2022 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -29,7 +29,6 @@
 #include "../SDL_systhread.h"
 #include "SDL_systhread_c.h"
 
-#define DEBUG
 #include "../../main/amigaos4/SDL_os4debug.h"
 #include "../../video/amigaos4/SDL_os4library.h"
 
