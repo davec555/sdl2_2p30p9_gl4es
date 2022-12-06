@@ -53,6 +53,10 @@
 #include "joystick/SDL_joystick_c.h"
 #include "sensor/SDL_sensor_c.h"
 
+#if SDL_THREAD_AMIGAOS4
+#include "thread/amigaos4/SDL_systhread_c.h"
+#endif
+
 /* Initialization/Cleanup routines */
 #if !SDL_TIMERS_DISABLED
 #include "timer/SDL_timer_c.h"
@@ -177,6 +181,10 @@ int SDL_InitSubSystem(Uint32 flags)
 
     /* Clear the error message */
     SDL_ClearError();
+
+#if SDL_THREAD_AMIGAOS4
+    OS4_InitThreadSubSystem();
+#endif
 
 #if SDL_USE_LIBDBUS
     SDL_DBus_Init();
@@ -487,6 +495,10 @@ void SDL_Quit(void)
     SDL_TicksQuit();
 #endif
 
+#if SDL_THREAD_AMIGAOS4
+    OS4_QuitThreadSubSystem();
+#endif
+
     SDL_ClearHints();
     SDL_AssertionsQuit();
 
@@ -608,6 +620,8 @@ SDL_GetPlatform(void)
     return "PlayStation 2";
 #elif __PSP__
     return "PlayStation Portable";
+#elif __AMIGAOS4__
+    return "AmigaOS 4";
 #elif __VITA__
     return "PlayStation Vita";
 #elif __NGAGE__
