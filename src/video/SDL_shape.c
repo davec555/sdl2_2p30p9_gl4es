@@ -1,23 +1,23 @@
-/*
-  Simple DirectMedia Layer
-  Copyright (C) 1997-2022 Sam Lantinga <slouken@libsdl.org>
+	/*
+	  Simple DirectMedia Layer
+	  Copyright (C) 1997-2022 Sam Lantinga <slouken@libsdl.org>
 
-  This software is provided 'as-is', without any express or implied
-  warranty.  In no event will the authors be held liable for any damages
-  arising from the use of this software.
+	  This software is provided 'as-is', without any express or implied
+	  warranty.  In no event will the authors be held liable for any damages
+	  arising from the use of this software.
 
-  Permission is granted to anyone to use this software for any purpose,
-  including commercial applications, and to alter it and redistribute it
-  freely, subject to the following restrictions:
+	  Permission is granted to anyone to use this software for any purpose,
+	  including commercial applications, and to alter it and redistribute it
+	  freely, subject to the following restrictions:
 
-  1. The origin of this software must not be misrepresented; you must not
-     claim that you wrote the original software. If you use this software
-     in a product, an acknowledgment in the product documentation would be
-     appreciated but is not required.
-  2. Altered source versions must be plainly marked as such, and must not be
-     misrepresented as being the original software.
-  3. This notice may not be removed or altered from any source distribution.
-*/
+	  1. The origin of this software must not be misrepresented; you must not
+	     claim that you wrote the original software. If you use this software
+	     in a product, an acknowledgment in the product documentation would be
+	     appreciated but is not required.
+	  2. Altered source versions must be plainly marked as such, and must not be
+	     misrepresented as being the original software.
+	  3. This notice may not be removed or altered from any source distribution.
+	*/
 #include "../SDL_internal.h"
 
 #include "SDL.h"
@@ -28,54 +28,61 @@
 #include "SDL_shape.h"
 #include "SDL_shape_internals.h"
 
-SDL_Window *
-SDL_CreateShapedWindow(const char *title, unsigned int x, unsigned int y, unsigned int w, unsigned int h, Uint32 flags)
-{
-    SDL_Window *result = NULL;
-    result = SDL_CreateWindow(title, -1000, -1000, w, h, (flags | SDL_WINDOW_BORDERLESS) & (~SDL_WINDOW_FULLSCREEN) & (~SDL_WINDOW_RESIZABLE) /* & (~SDL_WINDOW_SHOWN) */);
-    if (result != NULL) {
-        if (SDL_GetVideoDevice()->shape_driver.CreateShaper == NULL) {
-            SDL_DestroyWindow(result);
-            return NULL;
-        }
-        result->shaper = SDL_GetVideoDevice()->shape_driver.CreateShaper(result);
-        if (result->shaper != NULL) {
-            result->shaper->userx = x;
-            result->shaper->usery = y;
-            result->shaper->mode.mode = ShapeModeDefault;
-            result->shaper->mode.parameters.binarizationCutoff = 1;
-            result->shaper->hasshape = SDL_FALSE;
-            return result;
-        } else {
-            SDL_DestroyWindow(result);
-            return NULL;
-        }
-    }
-    return NULL;
-}
+	SDL_Window *
+	SDL_CreateShapedWindow(const char *title, unsigned int x, unsigned int y, unsigned int w, unsigned int h, Uint32 flags)
+	{
+	    SDL_Window *result = NULL;
+	    result = SDL_CreateWindow(title, -1000, -1000, w, h, (flags | SDL_WINDOW_BORDERLESS) & (~SDL_WINDOW_FULLSCREEN) & (~SDL_WINDOW_RESIZABLE) /* & (~SDL_WINDOW_SHOWN) */);
+	    if (result != NULL) {
+		if (SDL_GetVideoDevice()->shape_driver.CreateShaper == NULL) {
+		    SDL_DestroyWindow(result);
+		    return NULL;
+		}
+		result->shaper = SDL_GetVideoDevice()->shape_driver.CreateShaper(result);
+		if (result->shaper != NULL) {
+		    result->shaper->userx = x;
+		    result->shaper->usery = y;
+		    result->shaper->mode.mode = ShapeModeDefault;
+		    result->shaper->mode.parameters.binarizationCutoff = 1;
+		    result->shaper->hasshape = SDL_FALSE;
+		    return result;
+		} else {
+		    SDL_DestroyWindow(result);
+		    return NULL;
+		}
+	    }
+	    return NULL;
+	}
 
-SDL_bool
-SDL_IsShapedWindow(const SDL_Window *window)
-{
-    if (window == NULL) {
-        return SDL_FALSE;
-    }
-    return (SDL_bool)(window->shaper != NULL);
-}
+	SDL_bool
+	SDL_IsShapedWindow(const SDL_Window *window)
+	{
+	    if (window == NULL) {
+		return SDL_FALSE;
+	    }
+	    return (SDL_bool)(window->shaper != NULL);
+	}
 
-/* REQUIRES that bitmap point to a w-by-h bitmap with ppb pixels-per-byte. */
-void SDL_CalculateShapeBitmap(SDL_WindowShapeMode mode, SDL_Surface *shape, Uint8 *bitmap, Uint8 ppb)
-{
-    int x = 0;
-    int y = 0;
-    Uint8 r = 0, g = 0, b = 0, alpha = 0;
-    Uint8 *pixel = NULL;
-    Uint32 pixel_value = 0, mask_value = 0;
-    size_t bytes_per_scanline = (size_t)(shape->w + (ppb - 1)) / ppb;
-    Uint8 *bitmap_scanline;
-    SDL_Color key;
+	/* REQUIRES that bitmap point to a w-by-h bitmap with ppb pixels-per-byte. */
+	void SDL_CalculateShapeBitmap(SDL_WindowShapeMode mode, SDL_Surface *shape, Uint8 *bitmap, Uint8 ppb)
+	{
+	    int x = 0;
+	    int y = 0;
+	    Uint8 r = 0, g = 0, b = 0, alpha = 0;
+	    Uint8 *pixel = NULL;
+	    Uint32 pixel_value = 0, mask_value = 0;
+	    size_t bytes_per_scanline = (size_t)(shape->w + (ppb - 1)) / ppb;
+	    Uint8 *bitmap_scanline;
+	    SDL_Color key;
 
-    if (SDL_MUSTLOCK(shape)) {
+#ifdef __AMIGAOS4__
+    /* 8-bit alpha value per pixel */
+    const int MASK_VALUE = 255;
+#else
+    const int MASK_VALUE = 1;
+#endif
+
+    if (SDL_MUSTLOCK(shape))
         SDL_LockSurface(shape);
     }
 
@@ -104,17 +111,17 @@ void SDL_CalculateShapeBitmap(SDL_WindowShapeMode mode, SDL_Surface *shape, Uint
             SDL_GetRGBA(pixel_value, shape->format, &r, &g, &b, &alpha);
             switch (mode.mode) {
             case (ShapeModeDefault):
-                mask_value = (alpha >= 1 ? 1 : 0);
+                mask_value = (alpha >= 1 ? MASK_VALUE : 0);
                 break;
             case (ShapeModeBinarizeAlpha):
-                mask_value = (alpha >= mode.parameters.binarizationCutoff ? 1 : 0);
+                mask_value = (alpha >= mode.parameters.binarizationCutoff ? MASK_VALUE : 0);
                 break;
             case (ShapeModeReverseBinarizeAlpha):
-                mask_value = (alpha <= mode.parameters.binarizationCutoff ? 1 : 0);
+                mask_value = (alpha <= mode.parameters.binarizationCutoff ? MASK_VALUE : 0);
                 break;
             case (ShapeModeColorKey):
                 key = mode.parameters.colorKey;
-                mask_value = ((key.r != r || key.g != g || key.b != b) ? 1 : 0);
+                mask_value = ((key.r != r || key.g != g || key.b != b) ? MASK_VALUE : 0);
                 break;
             }
             bitmap_scanline[x / ppb] |= mask_value << (x % ppb);
