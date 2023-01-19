@@ -82,7 +82,7 @@
     const int MASK_VALUE = 1;
 #endif
 
-    if (SDL_MUSTLOCK(shape))
+    if (SDL_MUSTLOCK(shape)) {
         SDL_LockSurface(shape);
     }
 

@@ -342,28 +342,8 @@ void loop()
         {
             const int sym = event.key.keysym.sym;
 
-                if (sym == SDLK_TAB) {
-                    SDL_Log("Tab");
-
-
-                }
-
-
-                if (sym == SDLK_LEFT) {
-                    g_val -= 0.05;
-                }
-                if (sym == SDLK_RIGHT) {
-                    g_val += 0.05;
-                }
-                if (sym == SDLK_UP) {
-                    g_angle -= 1;
-                }
-                if (sym == SDLK_DOWN) {
-                        g_angle += 1;
-                }
- 
-
-                break;
+            if (sym == SDLK_TAB) {
+                SDL_Log("Tab");
             }
 
             if (sym == SDLK_LEFT) {
