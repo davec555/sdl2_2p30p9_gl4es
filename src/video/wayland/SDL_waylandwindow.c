@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2022 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2023 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -279,10 +279,16 @@ static void ConfigureWindowGeometry(SDL_Window *window)
     }
 
     /*
-     * The opaque and pointer confinement regions only need to be recalculated
-     * if the output size has changed.
+     * The surface geometry, opaque region and pointer confinement region only
+     * need to be recalculated if the output size has changed.
      */
     if (window_size_changed) {
+        /* libdecor does this internally on frame commits, so it's only needed for xdg surfaces. */
+        if (data->shell_surface_type != WAYLAND_SURFACE_LIBDECOR &&
+            viddata->shell.xdg && data->shell_surface.xdg.surface != NULL) {
+            xdg_surface_set_window_geometry(data->shell_surface.xdg.surface, 0, 0, data->window_width, data->window_height);
+        }
+
         if (!viddata->egl_transparency_enabled) {
             region = wl_compositor_create_region(viddata->compositor);
             wl_region_add(region, 0, 0,
@@ -1378,6 +1384,9 @@ void Wayland_ShowWindow(_THIS, SDL_Window *window)
                                                      &decoration_listener,
                                                      window);
         }
+
+        /* Set the geometry */
+        xdg_surface_set_window_geometry(data->shell_surface.xdg.surface, 0, 0, data->window_width, data->window_height);
     } else {
         /* Nothing to see here, just commit. */
         wl_surface_commit(data->surface);
@@ -1772,7 +1781,7 @@ void Wayland_RestoreWindow(_THIS, SDL_Window *window)
             xdg_toplevel_unset_maximized(wind->shell_surface.xdg.roleobj.toplevel);
         }
 
-    WAYLAND_wl_display_flush(viddata->display);
+    WAYLAND_wl_display_roundtrip(viddata->display);
 }
 
 void Wayland_SetWindowBordered(_THIS, SDL_Window *window, SDL_bool bordered)
@@ -1851,7 +1860,7 @@ void Wayland_MaximizeWindow(_THIS, SDL_Window *window)
         xdg_toplevel_set_maximized(wind->shell_surface.xdg.roleobj.toplevel);
     }
 
-    WAYLAND_wl_display_flush(viddata->display);
+    WAYLAND_wl_display_roundtrip(viddata->display);
 }
 
 void Wayland_MinimizeWindow(_THIS, SDL_Window *window)
