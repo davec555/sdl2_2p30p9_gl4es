@@ -126,7 +126,10 @@ SDL_UnloadObject(void *handle)
     if (handle) {
         OS4_ObjectHandle *oh = handle;
 
-        Elf32_Error result = IElf->DLClose(oh->elf_handle, oh->shared_object);
+#ifdef DEBUG
+        Elf32_Error result =
+#endif
+            IElf->DLClose(oh->elf_handle, oh->shared_object);
 
         dprintf("DLClose %s\n", (result == ELF32_NO_ERROR) ? "OK" : "failed" );
 

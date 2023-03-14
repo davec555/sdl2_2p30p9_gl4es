@@ -152,9 +152,20 @@ OS4_GL_AllocateBuffers(_THIS, int width, int height, int depth, SDL_WindowData *
         return SDL_FALSE;
     }
 
-    uint32 srcFmt = IGraphics->GetBitMapAttr(data->glBackBuffer, BMA_PIXELFORMAT);
-    uint32 src2Fmt = IGraphics->GetBitMapAttr(data->glFrontBuffer, BMA_PIXELFORMAT);
-    uint32 dstFmt = IGraphics->GetBitMapAttr(data->syswin->RPort->BitMap, BMA_PIXELFORMAT);
+#ifdef DEBUG
+    uint32 srcFmt =
+#endif
+        IGraphics->GetBitMapAttr(data->glBackBuffer, BMA_PIXELFORMAT);
+
+#ifdef DEBUG
+    uint32 src2Fmt =
+#endif
+        IGraphics->GetBitMapAttr(data->glFrontBuffer, BMA_PIXELFORMAT);
+
+#ifdef DEBUG
+    uint32 dstFmt =
+#endif
+        IGraphics->GetBitMapAttr(data->syswin->RPort->BitMap, BMA_PIXELFORMAT);
 
     dprintf("SRC FMT %u, SRC2 FMT %u, DST FMT %u\n", srcFmt, src2Fmt, dstFmt);
 

@@ -145,8 +145,10 @@ OS4_RunThread(STRPTR args, int32 length, APTR execbase)
 static void
 OS4_ExitThread(int32 returnCode, int32 finalData)
 {
+#ifdef DEBUG
     struct Task* thisTask = IExec->FindTask(NULL);
-	
+#endif
+
     OS4_ThreadNode *node = (OS4_ThreadNode *)finalData; // TODO: cannot use thisTask->tc_UserData if this is sometimes called from other process' context
 
     dprintf("Called from task %p, finalData %p\n", thisTask, finalData);
@@ -272,7 +274,11 @@ SDL_SYS_SetThreadPriority(SDL_ThreadPriority priority)
     }
 
     struct Task* task = IExec->FindTask(NULL);
-    const BYTE old = IExec->SetTaskPri(task, value);
+
+#ifdef DEBUG
+    const BYTE old =
+#endif
+        IExec->SetTaskPri(task, value);
 
     dprintf("Changed task %p priority from %d to %d\n", task, old, value);
 
