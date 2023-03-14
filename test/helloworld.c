@@ -6,8 +6,8 @@ for doing ad-hoc testing related to AmigaOS 4 port.
 */
 
 #include <stdio.h>
-#include "SDL2/SDL.h"
-#include "SDL2/SDL_opengl.h"
+#include "SDL.h"
+#include "SDL_opengl.h"
 
 #if SDL_BYTEORDER != SDL_BIG_ENDIAN
 #warning "wrong endian?"

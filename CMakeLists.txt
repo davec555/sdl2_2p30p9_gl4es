@@ -1617,14 +1617,14 @@ elseif(UNIX AND NOT APPLE AND NOT RISCOS AND NOT HAIKU)
   CheckPTHREAD()
 
   if(SDL_CLOCK_GETTIME)
-    check_library_exists(rt clock_gettime "" FOUND_CLOCK_GETTIME_LIBRT)
-    if(FOUND_CLOCK_GETTIME_LIBRT)
-      list(APPEND EXTRA_LIBS rt)
+    check_library_exists(c clock_gettime "" FOUND_CLOCK_GETTIME_LIBC)
+    if(FOUND_CLOCK_GETTIME_LIBC)
       set(HAVE_CLOCK_GETTIME 1)
     else()
-      check_library_exists(c clock_gettime "" FOUND_CLOCK_GETTIME_LIBC)
-      if(FOUND_CLOCK_GETTIME_LIBC)
+      check_library_exists(rt clock_gettime "" FOUND_CLOCK_GETTIME_LIBRT)
+      if(FOUND_CLOCK_GETTIME_LIBRT)
         set(HAVE_CLOCK_GETTIME 1)
+        list(APPEND EXTRA_LIBS rt)
       endif()
     endif()
   endif()
@@ -2485,6 +2485,9 @@ elseif(VITA)
         set(SDL_VIDEO_OPENGL_ES2 1)
         list(APPEND EXTRA_LIBS
           pib
+          libScePiglet_stub_weak
+          taihen_stub_weak
+          SceShaccCg_stub_weak
         )
         set(HAVE_VIDEO_VITA_PIB ON)
         set(SDL_VIDEO_VITA_PIB 1)
@@ -2497,7 +2500,6 @@ elseif(VITA)
       check_include_file(gpu_es4/psp2_pvr_hint.h HAVE_PVR_H)
       if(HAVE_PVR_H)
         target_compile_definitions(sdl-build-options INTERFACE "-D__psp2__")
-        check_include_file(gl4esinit.h HAVE_GL4ES_H)
         set(SDL_VIDEO_OPENGL_EGL 1)
         set(HAVE_OPENGLES TRUE)
         set(SDL_VIDEO_OPENGL_ES 1)
@@ -2508,17 +2510,21 @@ elseif(VITA)
         list(APPEND EXTRA_LIBS
           libgpu_es4_ext_stub_weak
           libIMGEGL_stub_weak
+          SceIme_stub
         )
 
         set(HAVE_VIDEO_VITA_PVR ON)
         set(SDL_VIDEO_VITA_PVR 1)
 
-        if(HAVE_GL4ES_H)
-          set(HAVE_OPENGL TRUE)
-          set(SDL_VIDEO_OPENGL 1)
-          set(SDL_VIDEO_RENDER_OGL 1)
-          list(APPEND EXTRA_LIBS libGL_stub)
-          set(SDL_VIDEO_VITA_PVR_OGL 1)
+        if(SDL_OPENGL)
+          check_include_file(gl4esinit.h HAVE_GL4ES_H)
+          if(HAVE_GL4ES_H)
+            set(HAVE_OPENGL TRUE)
+            set(SDL_VIDEO_OPENGL 1)
+            set(SDL_VIDEO_RENDER_OGL 1)
+            list(APPEND EXTRA_LIBS libGL_stub)
+            set(SDL_VIDEO_VITA_PVR_OGL 1)
+          endif()
         endif()
 
       else()
@@ -2548,19 +2554,6 @@ elseif(VITA)
       SceProcessmgr_stub
       m
     )
-    if(HAVE_VITA_PIB)
-        list(PREPEND EXTRA_LIBS
-          pib
-          libScePiglet_stub
-          SceShaccCg_stub
-          taihen_stub
-        )
-    endif()
-    if(HAVE_VITA_PVR)
-        list(PREPEND EXTRA_LIBS
-          SceIme_stub
-        )
-    endif()
   endif()
 
   set(HAVE_ARMSIMD TRUE)
@@ -3285,6 +3278,8 @@ if(NOT WINDOWS_STORE AND NOT SDL2_DISABLE_SDL2MAIN)
   if (NOT ANDROID)
     set_target_properties(SDL2main PROPERTIES DEBUG_POSTFIX "${SDL_CMAKE_DEBUG_POSTFIX}")
   endif()
+  set_property(TARGET SDL2main APPEND PROPERTY COMPATIBLE_INTERFACE_STRING "SDL_VERSION")
+  set_property(TARGET SDL2main PROPERTY INTERFACE_SDL_VERSION "SDL2")
 endif()
 
 if(ANDROID)
@@ -3372,8 +3367,10 @@ if(SDL_SHARED)
     set_target_properties(SDL2 PROPERTIES DEBUG_POSTFIX "${SDL_CMAKE_DEBUG_POSTFIX}")
   endif()
   # Use `Compatible Interface Properties` to allow consumers to enforce a shared/static library
-  set_property(TARGET SDL2 PROPERTY INTERFACE_SDL2_SHARED TRUE)
   set_property(TARGET SDL2 APPEND PROPERTY COMPATIBLE_INTERFACE_BOOL SDL2_SHARED)
+  set_property(TARGET SDL2 PROPERTY INTERFACE_SDL2_SHARED TRUE)
+  set_property(TARGET SDL2 APPEND PROPERTY COMPATIBLE_INTERFACE_STRING "SDL_VERSION")
+  set_property(TARGET SDL2 PROPERTY INTERFACE_SDL_VERSION "SDL2")
 endif()
 
 if(SDL_STATIC)
@@ -3400,8 +3397,10 @@ if(SDL_STATIC)
     set_target_properties(SDL2-static PROPERTIES DEBUG_POSTFIX "${SDL_CMAKE_DEBUG_POSTFIX}")
   endif()
   # Use `Compatible Interface Properties` to allow consumers to enforce a shared/static library
-  set_property(TARGET SDL2-static PROPERTY INTERFACE_SDL2_SHARED FALSE)
   set_property(TARGET SDL2-static APPEND PROPERTY COMPATIBLE_INTERFACE_BOOL SDL2_SHARED)
+  set_property(TARGET SDL2-static PROPERTY INTERFACE_SDL2_SHARED FALSE)
+  set_property(TARGET SDL2-static APPEND PROPERTY  COMPATIBLE_INTERFACE_STRING "SDL_VERSION")
+  set_property(TARGET SDL2-static PROPERTY INTERFACE_SDL_VERSION "SDL2")
 endif()
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DSDL_BUILD_MAJOR_VERSION=${SDL_MAJOR_VERSION}")
@@ -3423,6 +3422,8 @@ if(SDL_TEST)
       "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
       "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/SDL2>")
   target_link_libraries(SDL2_test PRIVATE ${EXTRA_TEST_LIBS})
+  set_property(TARGET SDL2_test APPEND PROPERTY COMPATIBLE_INTERFACE_STRING "SDL_VERSION")
+  set_property(TARGET SDL2_test PROPERTY INTERFACE_SDL_VERSION "SDL2")
 endif()
 
 ##### Installation targets #####

@@ -15,7 +15,7 @@ TODO:
 
 */
 
-#include "SDL2/SDL.h"
+#include "SDL.h"
 
 #define BENCHMARK_VERSION "0.7"
 
