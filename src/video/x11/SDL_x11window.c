@@ -418,7 +418,7 @@ int X11_CreateWindow(_THIS, SDL_Window *window)
 #if SDL_VIDEO_OPENGL_EGL
         if (((_this->gl_config.profile_mask == SDL_GL_CONTEXT_PROFILE_ES) ||
              SDL_GetHintBoolean(SDL_HINT_VIDEO_X11_FORCE_EGL, SDL_FALSE))
-#if SDL_VIDEO_OPENGL_GLX            
+#if SDL_VIDEO_OPENGL_GLX
             && ( !_this->gl_data || X11_GL_UseEGL(_this) )
 #endif
         ) {
@@ -641,9 +641,9 @@ int X11_CreateWindow(_THIS, SDL_Window *window)
     if ((window->flags & SDL_WINDOW_OPENGL) &&
         ((_this->gl_config.profile_mask == SDL_GL_CONTEXT_PROFILE_ES) ||
          SDL_GetHintBoolean(SDL_HINT_VIDEO_X11_FORCE_EGL, SDL_FALSE))
-#if SDL_VIDEO_OPENGL_GLX            
+#if SDL_VIDEO_OPENGL_GLX
         && ( !_this->gl_data || X11_GL_UseEGL(_this) )
-#endif  
+#endif
     ) {
 #if SDL_VIDEO_OPENGL_EGL
         if (!_this->egl_data) {
@@ -979,6 +979,10 @@ void X11_SetWindowSize(_THIS, SDL_Window *window)
         }
 
         if (SDL_TICKS_PASSED(SDL_GetTicks(), timeout)) {
+            /* Timeout occurred and window size didn't change
+             * window manager likely denied the resize. */
+            window->w = orig_w;
+            window->h = orig_h;
             break;
         }
 
@@ -1043,8 +1047,9 @@ int X11_SetWindowInputFocus(_THIS, SDL_Window *window)
 
 void X11_SetWindowBordered(_THIS, SDL_Window *window, SDL_bool bordered)
 {
-    const SDL_bool focused = ((window->flags & SDL_WINDOW_INPUT_FOCUS) != 0);
-    const SDL_bool visible = ((window->flags & SDL_WINDOW_HIDDEN) == 0);
+    const SDL_bool focused = (window->flags & SDL_WINDOW_INPUT_FOCUS) ? SDL_TRUE : SDL_FALSE;
+    const SDL_bool visible = (!(window->flags & SDL_WINDOW_HIDDEN)) ? SDL_TRUE : SDL_FALSE;
+
     SDL_WindowData *data = (SDL_WindowData *)window->driverdata;
     SDL_DisplayData *displaydata =
         (SDL_DisplayData *)SDL_GetDisplayForWindow(window)->driverdata;
@@ -1238,7 +1243,7 @@ static void SetWindowMaximized(_THIS, SDL_Window *window, SDL_bool maximized)
     } else {
         window->flags &= ~SDL_WINDOW_MAXIMIZED;
 
-        if ((window->flags & SDL_WINDOW_FULLSCREEN) != 0) {
+        if (window->flags & SDL_WINDOW_FULLSCREEN) {
             /* Fullscreen windows are maximized on some window managers,
                and this is functional behavior, so don't remove that state
                now, we'll take care of it when we leave fullscreen mode.
@@ -1361,7 +1366,7 @@ static void X11_SetWindowFullscreenViaWM(_THIS, SDL_Window *window, SDL_VideoDis
             e.xclient.message_type = _NET_WM_STATE;
             e.xclient.format = 32;
             e.xclient.window = data->xwindow;
-            if ((window->flags & SDL_WINDOW_MAXIMIZED) != 0) {
+            if (window->flags & SDL_WINDOW_MAXIMIZED) {
                 e.xclient.data.l[0] = _NET_WM_STATE_ADD;
             } else {
                 e.xclient.data.l[0] = _NET_WM_STATE_REMOVE;
@@ -1619,7 +1624,7 @@ void X11_SetWindowMouseGrab(_THIS, SDL_Window *window, SDL_bool grabbed)
 
             /* Try for up to 5000ms (5s) to grab. If it still fails, stop trying. */
             for (attempts = 0; attempts < 100; attempts++) {
-                result = X11_XGrabPointer(display, data->xwindow, True, mask, GrabModeAsync,
+                result = X11_XGrabPointer(display, data->xwindow, False, mask, GrabModeAsync,
                                           GrabModeAsync, data->xwindow, None, CurrentTime);
                 if (result == GrabSuccess) {
                     data->mouse_grabbed = SDL_TRUE;

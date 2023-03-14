@@ -189,12 +189,12 @@ int SDL_InitSubSystem(Uint32 flags)
     SDL_DBus_Init();
 #endif
 
-    if ((flags & SDL_INIT_GAMECONTROLLER)) {
+    if (flags & SDL_INIT_GAMECONTROLLER) {
         /* game controller implies joystick */
         flags |= SDL_INIT_JOYSTICK;
     }
 
-    if ((flags & (SDL_INIT_VIDEO | SDL_INIT_JOYSTICK | SDL_INIT_AUDIO))) {
+    if (flags & (SDL_INIT_VIDEO | SDL_INIT_JOYSTICK | SDL_INIT_AUDIO)) {
         /* video or joystick or audio implies events */
         flags |= SDL_INIT_EVENTS;
     }
@@ -204,7 +204,7 @@ int SDL_InitSubSystem(Uint32 flags)
 #endif
 
 #if SDL_VIDEO_DRIVER_WINDOWS
-    if ((flags & (SDL_INIT_HAPTIC | SDL_INIT_JOYSTICK))) {
+    if (flags & (SDL_INIT_HAPTIC | SDL_INIT_JOYSTICK)) {
         if (SDL_HelperWindowCreate() < 0) {
             goto quit_and_error;
         }
@@ -216,7 +216,7 @@ int SDL_InitSubSystem(Uint32 flags)
 #endif
 
     /* Initialize the event subsystem */
-    if ((flags & SDL_INIT_EVENTS)) {
+    if (flags & SDL_INIT_EVENTS) {
 #if !SDL_EVENTS_DISABLED
         if (SDL_PrivateShouldInitSubsystem(SDL_INIT_EVENTS)) {
             if (SDL_EventsInit() < 0) {
@@ -232,7 +232,7 @@ int SDL_InitSubSystem(Uint32 flags)
     }
 
     /* Initialize the timer subsystem */
-    if ((flags & SDL_INIT_TIMER)) {
+    if (flags & SDL_INIT_TIMER) {
 #if !SDL_TIMERS_DISABLED && !SDL_TIMER_DUMMY
         if (SDL_PrivateShouldInitSubsystem(SDL_INIT_TIMER)) {
             if (SDL_TimerInit() < 0) {
@@ -248,7 +248,7 @@ int SDL_InitSubSystem(Uint32 flags)
     }
 
     /* Initialize the video subsystem */
-    if ((flags & SDL_INIT_VIDEO)) {
+    if (flags & SDL_INIT_VIDEO) {
 #if !SDL_VIDEO_DISABLED
         if (SDL_PrivateShouldInitSubsystem(SDL_INIT_VIDEO)) {
             if (SDL_VideoInit(NULL) < 0) {
@@ -264,7 +264,7 @@ int SDL_InitSubSystem(Uint32 flags)
     }
 
     /* Initialize the audio subsystem */
-    if ((flags & SDL_INIT_AUDIO)) {
+    if (flags & SDL_INIT_AUDIO) {
 #if !SDL_AUDIO_DISABLED
         if (SDL_PrivateShouldInitSubsystem(SDL_INIT_AUDIO)) {
             if (SDL_AudioInit(NULL) < 0) {
@@ -280,7 +280,7 @@ int SDL_InitSubSystem(Uint32 flags)
     }
 
     /* Initialize the joystick subsystem */
-    if ((flags & SDL_INIT_JOYSTICK)) {
+    if (flags & SDL_INIT_JOYSTICK) {
 #if !SDL_JOYSTICK_DISABLED
         if (SDL_PrivateShouldInitSubsystem(SDL_INIT_JOYSTICK)) {
             if (SDL_JoystickInit() < 0) {
@@ -295,7 +295,7 @@ int SDL_InitSubSystem(Uint32 flags)
 #endif
     }
 
-    if ((flags & SDL_INIT_GAMECONTROLLER)) {
+    if (flags & SDL_INIT_GAMECONTROLLER) {
 #if !SDL_JOYSTICK_DISABLED
         if (SDL_PrivateShouldInitSubsystem(SDL_INIT_GAMECONTROLLER)) {
             if (SDL_GameControllerInit() < 0) {
@@ -311,7 +311,7 @@ int SDL_InitSubSystem(Uint32 flags)
     }
 
     /* Initialize the haptic subsystem */
-    if ((flags & SDL_INIT_HAPTIC)) {
+    if (flags & SDL_INIT_HAPTIC) {
 #if !SDL_HAPTIC_DISABLED
         if (SDL_PrivateShouldInitSubsystem(SDL_INIT_HAPTIC)) {
             if (SDL_HapticInit() < 0) {
@@ -327,7 +327,7 @@ int SDL_InitSubSystem(Uint32 flags)
     }
 
     /* Initialize the sensor subsystem */
-    if ((flags & SDL_INIT_SENSOR)) {
+    if (flags & SDL_INIT_SENSOR) {
 #if !SDL_SENSOR_DISABLED
         if (SDL_PrivateShouldInitSubsystem(SDL_INIT_SENSOR)) {
             if (SDL_SensorInit() < 0) {
@@ -367,7 +367,7 @@ void SDL_QuitSubSystem(Uint32 flags)
 
     /* Shut down requested initialized subsystems */
 #if !SDL_SENSOR_DISABLED
-    if ((flags & SDL_INIT_SENSOR)) {
+    if (flags & SDL_INIT_SENSOR) {
         if (SDL_PrivateShouldQuitSubsystem(SDL_INIT_SENSOR)) {
             SDL_SensorQuit();
         }
@@ -376,7 +376,7 @@ void SDL_QuitSubSystem(Uint32 flags)
 #endif
 
 #if !SDL_JOYSTICK_DISABLED
-    if ((flags & SDL_INIT_GAMECONTROLLER)) {
+    if (flags & SDL_INIT_GAMECONTROLLER) {
         /* game controller implies joystick */
         flags |= SDL_INIT_JOYSTICK;
 
@@ -386,7 +386,7 @@ void SDL_QuitSubSystem(Uint32 flags)
         SDL_PrivateSubsystemRefCountDecr(SDL_INIT_GAMECONTROLLER);
     }
 
-    if ((flags & SDL_INIT_JOYSTICK)) {
+    if (flags & SDL_INIT_JOYSTICK) {
         /* joystick implies events */
         flags |= SDL_INIT_EVENTS;
 
@@ -398,7 +398,7 @@ void SDL_QuitSubSystem(Uint32 flags)
 #endif
 
 #if !SDL_HAPTIC_DISABLED
-    if ((flags & SDL_INIT_HAPTIC)) {
+    if (flags & SDL_INIT_HAPTIC) {
         if (SDL_PrivateShouldQuitSubsystem(SDL_INIT_HAPTIC)) {
             SDL_HapticQuit();
         }
@@ -407,7 +407,7 @@ void SDL_QuitSubSystem(Uint32 flags)
 #endif
 
 #if !SDL_AUDIO_DISABLED
-    if ((flags & SDL_INIT_AUDIO)) {
+    if (flags & SDL_INIT_AUDIO) {
         /* audio implies events */
         flags |= SDL_INIT_EVENTS;
 
@@ -419,7 +419,7 @@ void SDL_QuitSubSystem(Uint32 flags)
 #endif
 
 #if !SDL_VIDEO_DISABLED
-    if ((flags & SDL_INIT_VIDEO)) {
+    if (flags & SDL_INIT_VIDEO) {
         /* video implies events */
         flags |= SDL_INIT_EVENTS;
 
@@ -431,7 +431,7 @@ void SDL_QuitSubSystem(Uint32 flags)
 #endif
 
 #if !SDL_TIMERS_DISABLED && !SDL_TIMER_DUMMY
-    if ((flags & SDL_INIT_TIMER)) {
+    if (flags & SDL_INIT_TIMER) {
         if (SDL_PrivateShouldQuitSubsystem(SDL_INIT_TIMER)) {
             SDL_TimerQuit();
         }
@@ -440,7 +440,7 @@ void SDL_QuitSubSystem(Uint32 flags)
 #endif
 
 #if !SDL_EVENTS_DISABLED
-    if ((flags & SDL_INIT_EVENTS)) {
+    if (flags & SDL_INIT_EVENTS) {
         if (SDL_PrivateShouldQuitSubsystem(SDL_INIT_EVENTS)) {
             SDL_EventsQuit();
         }

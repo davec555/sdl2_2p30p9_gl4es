@@ -149,6 +149,8 @@ typedef struct GLES2_RenderData
 
     SDL_bool debug_enabled;
 
+    SDL_bool GL_EXT_blend_minmax_supported;
+
 /* AmigaOS 4 workaround: add "my" prefix to function pointer names because glCall gets extended to IOGLES2->glCall
    which doesn't compile in cases of data->glCall */
 #define SDL_PROC(ret, func, params) ret(APIENTRY *my##func) params;
@@ -357,6 +359,10 @@ static GLenum GetBlendEquation(SDL_BlendOperation operation)
         return GL_FUNC_SUBTRACT;
     case SDL_BLENDOPERATION_REV_SUBTRACT:
         return GL_FUNC_REVERSE_SUBTRACT;
+    case SDL_BLENDOPERATION_MINIMUM:
+        return GL_MIN_EXT;
+    case SDL_BLENDOPERATION_MAXIMUM:
+        return GL_MAX_EXT;
     default:
         return GL_INVALID_ENUM;
     }
@@ -364,6 +370,8 @@ static GLenum GetBlendEquation(SDL_BlendOperation operation)
 
 static SDL_bool GLES2_SupportsBlendMode(SDL_Renderer *renderer, SDL_BlendMode blendMode)
 {
+    GLES2_RenderData *data = (GLES2_RenderData *)renderer->driverdata;
+
     SDL_BlendFactor srcColorFactor = SDL_GetBlendModeSrcColorFactor(blendMode);
     SDL_BlendFactor srcAlphaFactor = SDL_GetBlendModeSrcAlphaFactor(blendMode);
     SDL_BlendOperation colorOperation = SDL_GetBlendModeColorOperation(blendMode);
@@ -379,6 +387,14 @@ static SDL_bool GLES2_SupportsBlendMode(SDL_Renderer *renderer, SDL_BlendMode bl
         GetBlendEquation(alphaOperation) == GL_INVALID_ENUM) {
         return SDL_FALSE;
     }
+
+    if (colorOperation == SDL_BLENDOPERATION_MINIMUM && !data->GL_EXT_blend_minmax_supported) {
+        return SDL_FALSE;
+    }
+    if (colorOperation == SDL_BLENDOPERATION_MAXIMUM && !data->GL_EXT_blend_minmax_supported) {
+        return SDL_FALSE;
+    }
+
     return SDL_TRUE;
 }
 
@@ -2208,6 +2224,10 @@ static SDL_Renderer *GLES2_CreateRenderer(SDL_Window *window, Uint32 flags)
     renderer->rect_index_order[3] = 1;
     renderer->rect_index_order[4] = 3;
     renderer->rect_index_order[5] = 2;
+
+    if (SDL_GL_ExtensionSupported("GL_EXT_blend_minmax")) {
+        data->GL_EXT_blend_minmax_supported = SDL_TRUE;
+    }
 
     /* Set up parameters for rendering */
     data->myglActiveTexture(GL_TEXTURE0);
