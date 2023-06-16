@@ -153,7 +153,7 @@ typedef struct GLES2_RenderData
 
 /* AmigaOS 4 workaround: add "my" prefix to function pointer names because glCall gets extended to IOGLES2->glCall
    which doesn't compile in cases of data->glCall */
-#define SDL_PROC(ret, func, params) ret(APIENTRY *my##func) params;
+#define SDL_PROC(ret, func, params) ret (APIENTRY *my##func) params;
 #include "SDL_gles2funcs.h"
 #undef SDL_PROC
     GLES2_FBOList *framebuffers;
