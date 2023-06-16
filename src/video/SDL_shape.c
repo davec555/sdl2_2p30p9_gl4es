@@ -28,52 +28,50 @@
 #include "SDL_shape.h"
 #include "SDL_shape_internals.h"
 
-	SDL_Window *
-	SDL_CreateShapedWindow(const char *title, unsigned int x, unsigned int y, unsigned int w, unsigned int h, Uint32 flags)
-	{
-	    SDL_Window *result = NULL;
-	    result = SDL_CreateWindow(title, -1000, -1000, w, h, (flags | SDL_WINDOW_BORDERLESS) & (~SDL_WINDOW_FULLSCREEN) & (~SDL_WINDOW_RESIZABLE) /* & (~SDL_WINDOW_SHOWN) */);
-	    if (result != NULL) {
-		if (SDL_GetVideoDevice()->shape_driver.CreateShaper == NULL) {
-		    SDL_DestroyWindow(result);
-		    return NULL;
-		}
-		result->shaper = SDL_GetVideoDevice()->shape_driver.CreateShaper(result);
-		if (result->shaper != NULL) {
-		    result->shaper->userx = x;
-		    result->shaper->usery = y;
-		    result->shaper->mode.mode = ShapeModeDefault;
-		    result->shaper->mode.parameters.binarizationCutoff = 1;
-		    result->shaper->hasshape = SDL_FALSE;
-		    return result;
-		} else {
-		    SDL_DestroyWindow(result);
-		    return NULL;
-		}
-	    }
-	    return NULL;
-	}
+SDL_Window *SDL_CreateShapedWindow(const char *title, unsigned int x, unsigned int y, unsigned int w, unsigned int h, Uint32 flags)
+{
+    SDL_Window *result = NULL;
+    result = SDL_CreateWindow(title, -1000, -1000, w, h, (flags | SDL_WINDOW_BORDERLESS) & (~SDL_WINDOW_FULLSCREEN) & (~SDL_WINDOW_RESIZABLE) /* & (~SDL_WINDOW_SHOWN) */);
+    if (result != NULL) {
+        if (SDL_GetVideoDevice()->shape_driver.CreateShaper == NULL) {
+            SDL_DestroyWindow(result);
+            return NULL;
+        }
+        result->shaper = SDL_GetVideoDevice()->shape_driver.CreateShaper(result);
+        if (result->shaper != NULL) {
+            result->shaper->userx = x;
+            result->shaper->usery = y;
+            result->shaper->mode.mode = ShapeModeDefault;
+            result->shaper->mode.parameters.binarizationCutoff = 1;
+            result->shaper->hasshape = SDL_FALSE;
+            return result;
+        } else {
+            SDL_DestroyWindow(result);
+            return NULL;
+        }
+    }
+    return NULL;
+}
 
-	SDL_bool
-	SDL_IsShapedWindow(const SDL_Window *window)
-	{
-	    if (window == NULL) {
-		return SDL_FALSE;
-	    }
-	    return (SDL_bool)(window->shaper != NULL);
-	}
+SDL_bool SDL_IsShapedWindow(const SDL_Window *window)
+{
+    if (window == NULL) {
+        return SDL_FALSE;
+    }
+    return (SDL_bool)(window->shaper != NULL);
+}
 
-	/* REQUIRES that bitmap point to a w-by-h bitmap with ppb pixels-per-byte. */
-	void SDL_CalculateShapeBitmap(SDL_WindowShapeMode mode, SDL_Surface *shape, Uint8 *bitmap, Uint8 ppb)
-	{
-	    int x = 0;
-	    int y = 0;
-	    Uint8 r = 0, g = 0, b = 0, alpha = 0;
-	    Uint8 *pixel = NULL;
-	    Uint32 pixel_value = 0, mask_value = 0;
-	    size_t bytes_per_scanline = (size_t)(shape->w + (ppb - 1)) / ppb;
-	    Uint8 *bitmap_scanline;
-	    SDL_Color key;
+/* REQUIRES that bitmap point to a w-by-h bitmap with ppb pixels-per-byte. */
+void SDL_CalculateShapeBitmap(SDL_WindowShapeMode mode, SDL_Surface *shape, Uint8 *bitmap, Uint8 ppb)
+{
+    int x = 0;
+    int y = 0;
+    Uint8 r = 0, g = 0, b = 0, alpha = 0;
+    Uint8 *pixel = NULL;
+    Uint32 pixel_value = 0, mask_value = 0;
+    size_t bytes_per_scanline = (size_t)(shape->w + (ppb - 1)) / ppb;
+    Uint8 *bitmap_scanline;
+    SDL_Color key;
 
 #ifdef __AMIGAOS4__
     /* 8-bit alpha value per pixel */
@@ -144,6 +142,11 @@ static SDL_ShapeTree *RecursivelyCalculateShapeTree(SDL_WindowShapeMode mode, SD
     SDL_Color key;
     SDL_ShapeTree *result = (SDL_ShapeTree *)SDL_malloc(sizeof(SDL_ShapeTree));
     SDL_Rect next = { 0, 0, 0, 0 };
+
+    if (result == NULL) {
+        SDL_OutOfMemory();
+        return NULL;
+    }
 
     for (y = dimensions.y; y < dimensions.y + dimensions.h; y++) {
         for (x = dimensions.x; x < dimensions.x + dimensions.w; x++) {
@@ -219,8 +222,7 @@ static SDL_ShapeTree *RecursivelyCalculateShapeTree(SDL_WindowShapeMode mode, SD
     return result;
 }
 
-SDL_ShapeTree *
-SDL_CalculateShapeTree(SDL_WindowShapeMode mode, SDL_Surface *shape)
+SDL_ShapeTree *SDL_CalculateShapeTree(SDL_WindowShapeMode mode, SDL_Surface *shape)
 {
     SDL_Rect dimensions;
     SDL_ShapeTree *result = NULL;
