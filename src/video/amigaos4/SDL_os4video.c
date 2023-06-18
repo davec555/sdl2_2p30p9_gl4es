@@ -548,12 +548,16 @@ OS4_VideoInit(_THIS)
     // Poll sentinels added after SDL 2.0.14 cause increasing CPU load (TODO: fix)
     SDL_SetHint(SDL_HINT_POLL_SENTINEL, "0");
 
-    dprintf("Disable SDL_FRAMEBUFFER_ACCELERATION\n");
+    if (SDL_GetHint(SDL_HINT_FRAMEBUFFER_ACCELERATION)) {
+        dprintf("User overrides SDL_FRAMEBUFFER_ACCELERATION");
+    } else {
+        dprintf("Disable SDL_FRAMEBUFFER_ACCELERATION\n");
 
-    // Avoid creation of accelerated ("compositing") surfaces when using "software" driver.
-    // Compositing requires PatchCompositeTags on WinUAE, for example.
-    // TODO: consider reading the hint before disabling, in case user wants to force it?
-    SDL_SetHint(SDL_HINT_FRAMEBUFFER_ACCELERATION, "0");
+        // Avoid creation of accelerated ("compositing") surfaces when using "software" driver.
+        // Compositing requires PatchCompositeTags on WinUAE, for example.
+        // TODO: consider reading the hint before disabling, in case user wants to force it?
+        SDL_SetHint(SDL_HINT_FRAMEBUFFER_ACCELERATION, "0");
+    }
 
     return 0;
 }
