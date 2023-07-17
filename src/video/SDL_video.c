@@ -1413,6 +1413,9 @@ static int SDL_UpdateFullscreenMode(SDL_Window *window, SDL_bool fullscreen)
 #endif
 
     display = SDL_GetDisplayForWindow(window);
+    if (display == NULL) { /* No display connected, nothing to do. */
+        return 0;
+    }
 
     if (fullscreen) {
         /* Hide any other fullscreen windows */
