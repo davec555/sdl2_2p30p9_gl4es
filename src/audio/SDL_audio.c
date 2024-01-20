@@ -680,6 +680,7 @@ static int SDLCALL SDL_RunAudio(void *userdata)
     SDL_AudioCallback callback = device->callbackspec.callback;
     int data_len = 0;
     Uint8 *data;
+    Uint8 *device_buf_keepsafe = NULL;
 
     SDL_assert(!device->iscapture);
 
@@ -706,8 +707,16 @@ static int SDLCALL SDL_RunAudio(void *userdata)
 
         /* Fill the current buffer with sound */
         if (!device->stream && SDL_AtomicGet(&device->enabled)) {
-            SDL_assert(data_len == device->spec.size);
             data = current_audio.impl.GetDeviceBuf(device);
+
+            if (device->stream && SDL_AtomicGet(&device->enabled)) {
+                /* Oops. Audio device reset and now we suddenly use a stream, */
+                /* so save this devicebuf for later, to prevent de-sync */
+                if (data != NULL) {
+                    device_buf_keepsafe = data;
+                }
+                data = NULL;
+            }
         } else {
             /* if the device isn't enabled, we still write to the
                work_buffer, so the app's callback will fire with
@@ -738,7 +747,19 @@ static int SDLCALL SDL_RunAudio(void *userdata)
 
             while (SDL_AudioStreamAvailable(device->stream) >= ((int)device->spec.size)) {
                 int got;
-                data = SDL_AtomicGet(&device->enabled) ? current_audio.impl.GetDeviceBuf(device) : NULL;
+                if (SDL_AtomicGet(&device->enabled)) {
+                    /* if device reset occured - a switch from direct output to streaming */
+                    /* use the already aquired device buffer */
+                    if (device_buf_keepsafe) {
+                        data = device_buf_keepsafe;
+                        device_buf_keepsafe = NULL;
+                    } else {
+                        /* else - normal flow, just acquire the device buffer here */
+                        data = current_audio.impl.GetDeviceBuf(device);
+                    }
+                } else {
+                    data = NULL;
+                }
                 got = SDL_AudioStreamGet(device->stream, data ? data : device->work_buffer, device->spec.size);
                 SDL_assert((got <= 0) || (got == device->spec.size));
 
@@ -752,6 +773,14 @@ static int SDLCALL SDL_RunAudio(void *userdata)
                     current_audio.impl.PlayDevice(device);
                     current_audio.impl.WaitDevice(device);
                 }
+            }
+
+            /* it seems resampling was not fast enough, device_buf_keepsafe was not released yet, so play silence here */
+            if (device_buf_keepsafe) {
+                SDL_memset(device_buf_keepsafe, device->spec.silence, device->spec.size);
+                current_audio.impl.PlayDevice(device);
+                current_audio.impl.WaitDevice(device);
+                device_buf_keepsafe = NULL;
             }
         } else if (data == device->work_buffer) {
             /* nothing to do; pause like we queued a buffer to play. */
@@ -1026,7 +1055,7 @@ int SDL_AudioInit(const char *driver_name)
 /*
  * Get the current audio driver name
  */
-const char *SDL_GetCurrentAudioDriver()
+const char *SDL_GetCurrentAudioDriver(void)
 {
     return current_audio.name;
 }
