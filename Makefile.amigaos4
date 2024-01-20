@@ -64,7 +64,7 @@ VERSION_OBJECT = src/main/amigaos4/SDL_os4version.o
 PREFS_OBJECT = amiga-extra/prefs.o
 ALL_OBJECTS = $(OBJECTS) $(TESTLIB_OBJECTS) $(VERSION_OBJECT) $(PREFS_OBJECT)
 
-all: config_copy $(TARGET_STATIC) $(TARGET_SHARED) $(TESTLIB_STATIC) $(PREFS_PROGRAM)
+all: $(TARGET_STATIC) $(TARGET_SHARED) $(TESTLIB_STATIC) $(PREFS_PROGRAM)
 
 debug: CFLAGS += -DDEBUG
 
@@ -85,9 +85,6 @@ $(PREFS_PROGRAM): $(PREFS_OBJECT)
 	$(CC) -o $@ $^ # -lauto
 
 $(PREFS_OBJECT): amiga-extra/prefs.c amiga-extra/sdl2prefs_strings.h
-
-config_copy:
-	cp include/SDL_config_amigaos4.h include/SDL_config.h
 
 clean:
 	rm -f $(TARGET_STATIC) $(TARGET_SHARED)* $(TESTLIB_STATIC) $(ALL_OBJECTS) $(PREFS_PROGRAM)
