@@ -63,31 +63,40 @@ TESTLIB_OBJECTS = $(shell echo $(TESTLIB_SOURCES) | sed -e 's,\.c,\.o,g')
 VERSION_OBJECT = src/main/amigaos4/SDL_os4version.o
 PREFS_OBJECT = amiga-extra/prefs.o
 ALL_OBJECTS = $(OBJECTS) $(TESTLIB_OBJECTS) $(VERSION_OBJECT) $(PREFS_OBJECT)
+DEPS = $(ALL_OBJECTS:.o=.d)
 
-all: $(TARGET_STATIC) $(TARGET_SHARED) $(TESTLIB_STATIC) $(PREFS_PROGRAM)
+all: info $(TARGET_STATIC) $(TARGET_SHARED) $(TESTLIB_STATIC) $(PREFS_PROGRAM)
+	@echo All done
+
+info:
+	@echo Compiler flags: $(CFLAGS)
 
 debug: CFLAGS += -DDEBUG
 
 debug: all
 
 $(TESTLIB_STATIC): $(TESTLIB_OBJECTS)
-	$(AR) crv $@ $^
-	$(RANLIB) $@
+	@echo Creating $@
+	@$(AR) crv $@ $^
+	@$(RANLIB) $@
 
 $(TARGET_STATIC): $(OBJECTS)
-	$(AR) crv $@ $^
-	$(RANLIB) $@
+	@echo Creating $@
+	@$(AR) crv $@ $^
+	@$(RANLIB) $@
 
 $(TARGET_SHARED): $(OBJECTS) $(VERSION_OBJECT)
-	$(CC) -shared -Wl,-soname,$(TARGET_SHARED) -o $(TARGET_SHARED) $(OBJECTS) $(VERSION_OBJECT)
+	@echo Linking $@
+	@$(CC) -shared -Wl,-soname,$(TARGET_SHARED) -o $(TARGET_SHARED) $(OBJECTS) $(VERSION_OBJECT)
 
 $(PREFS_PROGRAM): $(PREFS_OBJECT)
-	$(CC) -o $@ $^ # -lauto
+	$(CC) -o $@ $^
 
 $(PREFS_OBJECT): amiga-extra/prefs.c amiga-extra/sdl2prefs_strings.h
 
 clean:
-	rm -f $(TARGET_STATIC) $(TARGET_SHARED) $(TESTLIB_STATIC) $(ALL_OBJECTS) $(PREFS_PROGRAM)
+	@echo Cleaning
+	@rm -f $(TARGET_STATIC) $(TARGET_SHARED) $(TESTLIB_STATIC) $(ALL_OBJECTS) $(PREFS_PROGRAM) $(DEPS)
 
 install:
 	mkdir -p /SDK/local/newlib/lib
@@ -98,6 +107,18 @@ install:
 	cp -f include/*.h /SDK/local/newlib/include/SDL2/
 	cp -f $(PREFS_PROGRAM) /SYS/Prefs/
 
-
 amiga-extra/sdl2prefs_strings.h: amiga-extra/sdl2prefs.cd
 	$(CATCOMP) $^ CFILE $@
+
+%.o : %.c
+	@echo Compiling $<
+	@$(CC) -o $@ -c $< $(CFLAGS)
+
+%.d : %.c
+	@echo Making dependencies for $<
+	@$(CC) -MM -MP -MT $(@:.d=.o) -o $@ $< $(CFLAGS)
+
+# Load .d files
+ifneq ($(MAKECMDGOALS),clean)
+-include $(DEPS)
+endif
