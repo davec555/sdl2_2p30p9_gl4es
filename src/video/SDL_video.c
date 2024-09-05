@@ -2732,14 +2732,6 @@ static SDL_bool ShouldAttemptTextureFramebuffer(void)
         attempt_texture_framebuffer = SDL_FALSE;
 #endif
     }
-
-    if (attempt_texture_framebuffer) {
-        /* Using a software renderer will try to display on a window surface, so avoid recursion here */
-        hint = SDL_GetHint(SDL_HINT_RENDER_DRIVER);
-        if (hint && SDL_strcasecmp(hint, "software") == 0) {
-            attempt_texture_framebuffer = SDL_FALSE;
-        }
-    }
     return attempt_texture_framebuffer;
 }
 
@@ -3354,6 +3346,9 @@ void SDL_DestroyWindow(SDL_Window *window)
     /* Make sure this window no longer has focus */
     if (SDL_GetKeyboardFocus() == window) {
         SDL_SetKeyboardFocus(NULL);
+    }
+    if ((window->flags & SDL_WINDOW_MOUSE_CAPTURE)) {
+        SDL_UpdateMouseCapture(SDL_TRUE);
     }
     if (SDL_GetMouseFocus() == window) {
         SDL_SetMouseFocus(NULL);
