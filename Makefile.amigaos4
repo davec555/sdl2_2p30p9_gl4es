@@ -6,6 +6,7 @@ CC = ppc-amigaos-gcc
 CXX = ppc-amigaos-g++
 STRIP = ppc-amigaos-strip
 CATCOMP = catcomp
+SDK = /opt/ppc-amigaos/ppc-amigaos/SDK
 
 AMIGADATE = $(shell date +"%-d.%m.%Y")
 
@@ -100,13 +101,13 @@ clean:
 	@rm -f $(TARGET_STATIC) $(TARGET_SHARED) $(TESTLIB_STATIC) $(ALL_OBJECTS) $(PREFS_PROGRAM) $(DEPS)
 
 install:
-	mkdir -p /SDK/local/newlib/lib
-	mkdir -p /SDK/local/newlib/include/SDL2
-	cp -f $(TARGET_STATIC) /SDK/local/newlib/lib
-	cp -f $(TARGET_SHARED) /SDK/local/newlib/lib
-	cp -f $(TESTLIB_STATIC) /SDK/local/newlib/lib
-	cp -f include/*.h /SDK/local/newlib/include/SDL2/
-	cp -f $(PREFS_PROGRAM) /SYS/Prefs/
+	mkdir -p $(SDK)/local/newlib/lib
+	mkdir -p $(SDK)/local/newlib/include/SDL2
+	cp -f $(TARGET_STATIC) $(SDK)/local/newlib/lib
+	cp -f $(TARGET_SHARED) $(SDK)/local/newlib/lib
+	cp -f $(TESTLIB_STATIC) $(SDK)/local/newlib/lib
+	cp -f include/*.h $(SDK)/local/newlib/include/SDL2/
+	#cp -f $(PREFS_PROGRAM) /SYS/Prefs/
 
 amiga-extra/sdl2prefs_strings.h: amiga-extra/sdl2prefs.cd
 	$(CATCOMP) $^ CFILE $@
