@@ -20,6 +20,7 @@
 */
 #include "../../SDL_internal.h"
 
+#ifdef SDL_GL4ES
 #if SDL_VIDEO_DRIVER_AMIGAOS4
 
 #include "SDL_os4video.h"
@@ -305,3 +306,4 @@ OS4_GL_GetSwapInterval(_THIS)
 
 #endif /* SDL_VIDEO_DRIVER_AMIGAOS4 */
 
+#endif /* SDL_GL4ES */
