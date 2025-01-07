@@ -8,21 +8,26 @@ STRIP = ppc-amigaos-strip
 CATCOMP = catcomp
 SDK = /opt/ppc-amigaos/ppc-amigaos/SDK
 #GLTYPE?=gl4es
+CRT?=newlib
 
 AMIGADATE = $(shell date +"%-d.%m.%Y")
 
 #CFLAGS  = -gstabs -O2 -Wall -Werror -Wshadow -fPIC -fcommon -I./include -D__AMIGADATE__=\"$(AMIGADATE)\"
 #CFLAGS  = -DSDL_GL4ES -gstabs -O2 -Wall -fPIC -fcommon -I./include -D__AMIGADATE__=\"$(AMIGADATE)\"
-CFLAGS  = -gstabs -O2 -Wall -fPIC -fcommon -I./include -D__AMIGADATE__=\"$(AMIGADATE)\"
+CFLAGS  = -mcrt=$(CRT) -gstabs -O2 -Wall -fPIC -fcommon -I./include -D__AMIGADATE__=\"$(AMIGADATE)\"
 
 ifeq ($(GLTYPE),gl4es)
 	LIB_SUFFIX = _gl4es
 	CFLAGS += -DSDL_GL4ES
 endif
 
-TARGET_STATIC  = libSDL2${LIB_SUFFIX}.a
-TARGET_SHARED  = libSDL2-2.30${LIB_SUFFIX}.so
-TESTLIB_STATIC = libSDL2_test${LIB_SUFFIX}.a
+ifneq ($(CRT),newlib)
+	CRT_SUFFIX = _$(CRT)
+endif
+
+TARGET_STATIC  = libSDL2$(LIB_SUFFIX)$(CRT_SUFFIX).a
+TARGET_SHARED  = libSDL2-2.30$(LIB_SUFFIX)$(CRT_SUFFIX).so
+TESTLIB_STATIC = libSDL2_test$(LIB_SUFFIX)$(CRT_SUFFIX).a
 PREFS_PROGRAM = SDL2
 
 SOURCES = \
@@ -79,7 +84,7 @@ all: info $(TARGET_STATIC) $(TARGET_SHARED) $(TESTLIB_STATIC) $(PREFS_PROGRAM)
 
 info:
 ifeq ($(GLTYPE),gl4es)
-	@echo Compiling gl4es version
+	@echo Compiling gl4es $(CRT) version
 endif
 	@echo Compiler flags: $(CFLAGS)
 
@@ -99,7 +104,7 @@ $(TARGET_STATIC): $(OBJECTS)
 
 $(TARGET_SHARED): $(OBJECTS) $(VERSION_OBJECT)
 	@echo Linking $@
-	@$(CC) -shared -Wl,-soname,$(TARGET_SHARED) -o $(TARGET_SHARED) $(OBJECTS) $(VERSION_OBJECT)
+	@$(CC) -mcrt=$(CRT) -shared -Wl,-soname,$(TARGET_SHARED) -o $(TARGET_SHARED) $(OBJECTS) $(VERSION_OBJECT)
 
 $(PREFS_PROGRAM): $(PREFS_OBJECT)
 	$(CC) -o $@ $^
@@ -115,12 +120,12 @@ cleanobj:
 	@rm -f $(ALL_OBJECTS)
 
 install:
-	mkdir -p $(SDK)/local/newlib/lib
-	mkdir -p $(SDK)/local/newlib/include/SDL2
-	cp -f $(TARGET_STATIC) $(SDK)/local/newlib/lib
-	cp -f $(TARGET_SHARED) $(SDK)/local/newlib/lib
-	cp -f $(TESTLIB_STATIC) $(SDK)/local/newlib/lib
-	cp -f include/*.h $(SDK)/local/newlib/include/SDL2/
+	mkdir -p $(SDK)/local/$(CRT)/lib
+	mkdir -p $(SDK)/local/$(CRT)/include/SDL2
+	cp -f $(TARGET_STATIC) $(SDK)/local/$(CRT)/lib
+	cp -f $(TARGET_SHARED) $(SDK)/local/$(CRT)/lib
+	cp -f $(TESTLIB_STATIC) $(SDK)/local/$(CRT)/lib
+	cp -f include/*.h $(SDK)/local/$(CRT)/include/SDL2/
 	#cp -f $(PREFS_PROGRAM) /SYS/Prefs/
 
 amiga-extra/sdl2prefs_strings.h: amiga-extra/sdl2prefs.cd
